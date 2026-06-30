@@ -48,7 +48,8 @@
 | [Gateway OpenAPI 契约](services/gateway/api/openapi.yaml) | 当前稳定的 gateway 公开 API 机器可读契约。 |
 | [Gateway Active API Owner Map](services/gateway/docs/active-api-owner-map.md) | 从 Gateway OpenAPI 审计得到的 active API 清单、owner service、tag、operationId 和认证要求。 |
 | [AI Gateway OpenAPI 契约](services/ai-gateway/api/openapi.yaml) | AI Gateway 内部服务机器可读契约；前端不得直接调用。 |
-| [Parser Runtime OpenAPI 契约](../services/parser/api/openapi.yaml) | Parser 内部服务机器可读契约；只供 Knowledge ingestion 等后端服务调用。 |
+| [Parser Runtime 公开契约](services/parser/api/public.openapi.yaml) | Parser 无 Gateway 公开 API 的机器可读声明。 |
+| [Parser Runtime 内部契约](services/parser/api/internal.openapi.yaml) | Parser 内部服务机器可读契约；只供 Knowledge ingestion 等后端服务调用。 |
 
 ## 运行与测试
 
@@ -90,6 +91,7 @@
 - [前后端集成契约](architecture/frontend-backend-contract.md)
 - [服务边界矩阵](architecture/service-boundaries.md)
 - 对应服务接口文档
+- 对应服务 `docs/services/<service>/api/public.openapi.yaml` 或 `internal.openapi.yaml`：`public` 只记录经 Gateway 暴露的 `/api/v1/**` 子契约，`internal` 只记录服务间 `/internal/v1/**` 和健康检查契约；没有公开路径的内部服务应提供空 `public.openapi.yaml` 明确声明。
 - 涉及内部模型调用、provider 配置或调用记录时，同步更新 [AI Gateway 服务接口文档](services/ai-gateway/README.md)、[AI Gateway 数据模型文档](services/ai-gateway/docs/data-models.md) 和 [AI Gateway OpenAPI 契约](services/ai-gateway/api/openapi.yaml)
 - 涉及 provider adapter、embedding、rerank 或模型调用摘要时，同步更新 [AI Gateway Provider Adapter 说明](services/ai-gateway/docs/provider-adapters.md)
 - 涉及本地 Compose、环境变量、跨服务 smoke 或 PR 前检查策略时，同步更新 [本地联调运行手册](runbooks/local-integration.md) 和 [测试策略](testing/strategy.md)

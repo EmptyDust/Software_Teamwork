@@ -1,0 +1,19 @@
+openapi: 3.0.3
+info:
+  title: Parser Runtime Public API
+  version: 0.1.0
+  description: |
+    Parser Runtime has no frontend-facing or gateway-public API. This file
+    exists to make the service-level public/internal API split explicit.
+
+    Frontend, admin, MCP, and other external callers must not call Parser
+    directly. Parser is only invoked by backend owner services through the
+    internal contract in internal.openapi.yaml.
+x-api-scope: gateway-public
+x-owner-service: parser
+x-public-api-status: none
+x-no-public-paths-reason: Parser is an internal document parsing runtime used by Knowledge ingestion only.
+servers:
+  - url: /api/v1
+paths: {}
+components: {}

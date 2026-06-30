@@ -39,7 +39,7 @@
 | `services/auth` | 已落地 Go auth 服务、PostgreSQL repository、用户/会话内部 API、argon2id、token hash 和 migration。 | `services/auth/go.mod`、`services/auth/migrations/`、`docs/services/auth/docs/implementation.md` |
 | `services/file` | 已落地 Go file 服务、基础 `/internal/v1/files/**` API、memory/local/MinIO object store、file_objects migration、PostgreSQL metadata runtime 和 service-token 校验；`FILE_DATABASE_URL` 为空时仍保留 memory metadata 模式。 | `services/file/go.mod`、`services/file/migrations/`、`docs/services/file/docs/implementation.md` |
 | `services/knowledge` | 已落地 Go knowledge 服务、PostgreSQL repository、知识库 CRUD、文档上传 handoff 和 asynq 入队；入库 worker、Qdrant、embedding、retrieval 尚未落地。 | `services/knowledge/go.mod`、`services/knowledge/migrations/`、`docs/services/knowledge/docs/implementation.md` |
-| `services/parser` | 已新增内部 parser runtime 契约和目录 scaffold，目标运行时为 Python + PaddleOCR；尚未添加 Python/PaddleOCR 依赖、Docker image 或部署 wiring。 | `services/parser/README.md`、`services/parser/api/openapi.yaml`、`docs/services/parser/README.md` |
+| `services/parser` | 已新增 parser runtime 契约和目录 scaffold，目标运行时为 Python + PaddleOCR；尚未添加 Python/PaddleOCR 依赖、Docker image 或部署 wiring。 | `services/parser/README.md`、`docs/services/parser/README.md`、`docs/services/parser/api/public.openapi.yaml`、`docs/services/parser/api/internal.openapi.yaml` |
 | `services/qa` | 已落地 Go QA 服务、PostgreSQL repository、会话/消息/SSE、配置、引用、工具/MCP/model client 基础；默认走 AI Gateway chat，真实 Knowledge retrieval 和跨服务 smoke 仍待补齐。 | `services/qa/go.mod`、`services/qa/migrations/`、`docs/services/qa/docs/implementation.md` |
 | `services/document` | 已落地 Go document 服务、PostgreSQL repository、模板/材料/报告/大纲/章节 API、report jobs/attempts/events 和 asynq worker 状态机；report files、statistics、settings 和真实 AI/Pandoc/DOCX 生成仍未落地。 | `services/document/go.mod`、`services/document/migrations/`、`docs/services/document/docs/implementation.md` |
 | `services/ai-gateway` | 已落地 Go AI Gateway、PostgreSQL repository、model profile CRUD、credential encryption、service-token auth、OpenAI-compatible chat completions、embeddings、rerankings、provider invocation 记录和 usage aggregate；真实 provider/跨服务 smoke 仍待补齐。 | `services/ai-gateway/go.mod`、`services/ai-gateway/migrations/`、`docs/services/ai-gateway/docs/implementation.md` |
@@ -166,11 +166,19 @@
 
 ## API 与契约版本
 
+服务级机器可读契约在 `docs/services/<service>/api/` 下按调用面拆分：
+`public.openapi.yaml` 只描述经 Gateway 暴露的 `/api/v1/**` 子契约，
+`internal.openapi.yaml` 只描述服务间 `/internal/v1/**` 和健康检查契约。历史
+`openapi.yaml` 文件按服务后续文档整理任务逐步迁移；新建服务或新增调用面应先按
+public/internal 命名落位。
+
 | 契约 | OpenAPI 版本 | API 文档版本 | 说明 |
 | --- | --- | --- | --- |
 | Gateway public API | `3.0.3` | `0.1.0` | 前端公开契约权威来源。 |
 | Auth service API | `3.0.3` | `0.1.0` | 服务级身份与会话契约。 |
 | AI Gateway internal API | `3.0.3` | `0.1.0` | 服务间模型配置和 OpenAI-compatible 调用契约。 |
+| Parser public API | `3.0.3` | `0.1.0` | Parser 无 Gateway 公开 API；以空 `paths` 明确声明。 |
+| Parser internal API | `3.0.3` | `0.1.0` | 服务间文档解析运行时契约，只供 Knowledge ingestion 等后端服务调用。 |
 | QA service API | `3.0.3` | `0.1.0` | QA Agent Host 设计契约。 |
 | Document service API | `3.0.3` | `0.1.0` | 报告生成设计契约。 |
 | Knowledge service internal API | `3.0.3` | `0.1.0` | 服务内 OpenAPI 只覆盖已实现的基础知识库和文档上传/详情能力；更多公开能力以 gateway OpenAPI 为准。 |

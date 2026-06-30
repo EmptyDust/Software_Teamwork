@@ -33,6 +33,15 @@ services/parser/
       service/
 ```
 
+The docs baseline separates service contracts under `docs/services/parser/api/`:
+
+- `public.openapi.yaml` declares that Parser has no Gateway public API.
+- `internal.openapi.yaml` defines the service-to-service Parser contract.
+
+`services/parser/api/openapi.yaml` is the implementation-local copy used by the
+future Parser runtime scaffold and should stay aligned with the docs internal
+contract.
+
 ## Internal Contract
 
 Primary route:

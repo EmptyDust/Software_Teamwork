@@ -26,7 +26,11 @@ Parser 的服务间契约是：
 POST /internal/v1/parsed-documents
 ```
 
-机器可读契约见 [`services/parser/api/openapi.yaml`](../../../services/parser/api/openapi.yaml)。
+机器可读契约分为两份：
+
+- [`api/public.openapi.yaml`](api/public.openapi.yaml)：Parser 没有 Gateway 公开路径，前端、管理端和 MCP 调用方不得直连 Parser。
+- [`api/internal.openapi.yaml`](api/internal.openapi.yaml)：Parser 服务间内部契约，当前只供 Knowledge ingestion 调用。
+
 Knowledge 调用 Parser 时必须传递 `X-Request-Id`、`X-Caller-Service: knowledge`
 和必要的内部 service token。`X-User-Id` 只作为审计上下文，不作为 Parser 里的授权事实。
 

@@ -25,7 +25,7 @@
 
 - 后端通用技术栈、数据库、迁移、日志、配置、队列和测试规则以 [`docs/architecture/technology-decisions.md`](../../../architecture/technology-decisions.md) 为准。
 - Qdrant 当前使用面较窄，短期以轻量 HTTP client 接入；Knowledge 负责 collection/point 生命周期，但不把 Qdrant 作为业务状态事实来源。
-- 文档解析通过 Parser 内部 HTTP API 接入，契约见 [`services/parser/api/openapi.yaml`](../../../../services/parser/api/openapi.yaml)；Knowledge 不引入 PaddleOCR/PaddlePaddle/OpenCV/CUDA 运行时依赖。
+- 文档解析通过 Parser 内部 HTTP API 接入，契约见 [`docs/services/parser/api/internal.openapi.yaml`](../../parser/api/internal.openapi.yaml)；Knowledge 不引入 PaddleOCR/PaddlePaddle/OpenCV/CUDA 运行时依赖。
 - embedding、rerank 和后续 LLM 能力通过 AI Gateway profile 调用；Knowledge 不保存 provider API key 明文。
 
 ## 2. 通用约定

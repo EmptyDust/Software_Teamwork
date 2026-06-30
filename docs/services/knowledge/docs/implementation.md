@@ -54,7 +54,7 @@
 | 原文 content API 未实现 | `docs/services/gateway/api/openapi.yaml` | API / file integration | 通过 file reference 读取原文件内容。 |
 | `knowledge-queries` 检索未实现 | `docs/services/gateway/api/openapi.yaml`、`docs/services/knowledge/api/public.openapi.yaml`、`docs/services/knowledge/docs/api-contract.md` 2.6 | API / QA / document | 可先用 seeded chunks、fake vector hits 和 fake AI Gateway adapter 实现契约；真实 Qdrant/embedding/rerank runtime 作为集成层补齐。 |
 | Qdrant adapter / embedding / rerank 未实现 | `docs/architecture/service-boundaries.md`、`docs/services/knowledge/docs/data-models.md` | vector store / AI provider | 接入 AI Gateway embeddings/rerank 和 Qdrant；AI Gateway endpoint 已有不等于 Knowledge RAG 可用。 |
-| Parser service runtime 未实现 | `docs/services/parser/README.md`、`services/parser/api/openapi.yaml` | parser / OCR / ingestion | Parser 已有内部契约；Python/PaddleOCR runtime、Docker image、部署 wiring 和 Knowledge HTTP client 仍需后续实现。 |
+| Parser service runtime 未实现 | `docs/services/parser/README.md`、`docs/services/parser/api/internal.openapi.yaml` | parser / OCR / ingestion | Parser 已有内部契约；Python/PaddleOCR runtime、Docker image、部署 wiring 和 Knowledge HTTP client 仍需后续实现。 |
 | admin parser-configs 未实现 | `docs/services/gateway/api/openapi.yaml` | API / admin | 实现解析器配置资源或由管理组决策契约阶段状态。 |
 | document PATCH/DELETE 未实现 | `docs/services/gateway/api/openapi.yaml` | API / frontend | 实现标签更新、删除和 file/index cleanup。 |
 
@@ -101,7 +101,7 @@
 | 端到端上传联调 | PostgreSQL + File + Redis end-to-end upload | missing | 需要真实依赖联调。 |
 | A-12 检索契约测试 | seeded documents/chunks + fake vector/AI adapter | documented, not implemented | 不要求真实 A-11 worker；覆盖 topK/threshold/tags/rerank、空结果、不可见文档过滤。 |
 | A-14 active operation 契约测试 | gateway route matrix + Knowledge handler tests + fake dependencies | partial | 可先验证 OpenAPI schema、错误 envelope、request id 和 501 退出；Parser/File/Qdrant/AI Gateway 跨服务 smoke 另列。 |
-| Parser contract test | `services/parser/api/openapi.yaml` schema review + future HTTP tests | documented, not implemented | 需要 Parser runtime 实现后补 health/ready/parse/error/de-sensitization tests。 |
+| Parser contract test | `docs/services/parser/api/internal.openapi.yaml` schema review + future HTTP tests | documented, not implemented | 需要 Parser runtime 实现后补 health/ready/parse/error/de-sensitization tests。 |
 | 手工 smoke | 启动 PostgreSQL、File、Redis 后上传文档 | not run | 需要可复现脚本或 Compose。 |
 
 ## 9. 建议任务
@@ -110,7 +110,7 @@
 | --- | --- | --- | --- | --- |
 | 实现 Knowledge 文档内容、删除和 chunks API | 新任务 | P0 | Gateway active contract | 解除 `/documents/**` 相关 501。 |
 | 实现 ingestion worker 与状态流转 | 新任务 | P0 | 上传后必须进入处理闭环 | 调用 Parser 解析 raw bytes，再处理 chunking/embedding/ready/failed。 |
-| 实现 Parser runtime | 新任务 | P0 | A-11 解析运行时边界 | 按 `services/parser/api/openapi.yaml` 落地 Python/PaddleOCR 服务、Docker image、service token、payload limit 和脱敏错误。 |
+| 实现 Parser runtime | 新任务 | P0 | A-11 解析运行时边界 | 按 `docs/services/parser/api/internal.openapi.yaml` 落地 Python/PaddleOCR 服务、Docker image、service token、payload limit 和脱敏错误。 |
 | 实现 Qdrant + AI Gateway embedding/rerank 接入 | 新任务 | P0 | 文档/代码出入评审结论 | 上传入队 -> chunk/content -> embedding -> Qdrant -> retrieval/rerank 最小闭环。 |
 | 实现 knowledge-queries 检索 | 新任务 | P0 | QA/Document 依赖检索 | 先按 seeded chunk/vector fixture 返回 chunk/document/source/score，并可选 rerank 摘要；真实 worker/Qdrant/AI Gateway smoke 作为集成层。 |
 | 实现 parser configs 或回写契约状态 | 新任务 | P1 | Gateway active admin paths | 避免 active path 长期 501。 |

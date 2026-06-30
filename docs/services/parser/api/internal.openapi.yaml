@@ -1,0 +1,285 @@
+openapi: 3.0.3
+info:
+  title: Parser Runtime Internal API
+  version: 0.1.0
+  description: |
+    Internal document parser runtime API. Knowledge owns ingestion state,
+    chunking, embedding, Qdrant indexing, retrieval, and public parser
+    configuration. Parser only converts raw document bytes into normalized
+    parsed content. The target runtime is Python/PaddleOCR, hidden behind this
+    HTTP contract.
+x-api-scope: internal-service
+servers:
+  - url: /
+security:
+  - serviceTokenAuth: []
+tags:
+  - name: health
+  - name: parsed-documents
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      summary: Liveness check
+      operationId: getHealthz
+      security: []
+      responses:
+        '200':
+          description: Parser process is alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /readyz:
+    get:
+      tags: [health]
+      summary: Readiness check
+      operationId: getReadyz
+      security: []
+      responses:
+        '200':
+          description: Parser is ready to accept parse requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Parser backend is not ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+  /internal/v1/parsed-documents:
+    post:
+      tags: [parsed-documents]
+      summary: Create a parsed document from raw bytes
+      operationId: createParsedDocument
+      x-owner-service: parser
+      description: |
+        Converts one raw document into normalized parsed text. Parser must not
+        persist Knowledge business state, object storage references, chunks,
+        embeddings, Qdrant points, prompts, provider bodies, or credentials.
+      parameters:
+        - $ref: '#/components/parameters/RequestIdHeader'
+        - $ref: '#/components/parameters/CallerServiceHeader'
+        - $ref: '#/components/parameters/UserIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateParsedDocumentRequest'
+      responses:
+        '200':
+          description: Parsed document content.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsedDocumentResponse'
+        '400':
+          $ref: '#/components/responses/Error'
+        '401':
+          $ref: '#/components/responses/Error'
+        '403':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+        '415':
+          $ref: '#/components/responses/Error'
+        '429':
+          $ref: '#/components/responses/Error'
+        '502':
+          $ref: '#/components/responses/Error'
+        '500':
+          $ref: '#/components/responses/Error'
+components:
+  securitySchemes:
+    serviceTokenAuth:
+      type: apiKey
+      in: header
+      name: X-Service-Token
+  parameters:
+    RequestIdHeader:
+      name: X-Request-Id
+      in: header
+      required: false
+      schema:
+        type: string
+    CallerServiceHeader:
+      name: X-Caller-Service
+      in: header
+      required: true
+      schema:
+        type: string
+        enum: [knowledge]
+    UserIdHeader:
+      name: X-User-Id
+      in: header
+      required: false
+      schema:
+        type: string
+  responses:
+    Error:
+      description: Standard internal service error envelope.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    HealthResponse:
+      type: object
+      required: [data, requestId]
+      properties:
+        data:
+          type: object
+          required: [service, status]
+          properties:
+            service:
+              type: string
+              enum: [parser]
+            status:
+              type: string
+              enum: [ok, ready, degraded]
+            backend:
+              type: string
+              nullable: true
+              description: Sanitized active parser backend identifier.
+        requestId:
+          type: string
+    CreateParsedDocumentRequest:
+      type: object
+      required: [dataBase64]
+      properties:
+        documentName:
+          type: string
+          maxLength: 255
+        contentType:
+          type: string
+          maxLength: 255
+        sizeBytes:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Raw byte size before base64 encoding.
+        dataBase64:
+          type: string
+          format: byte
+          description: Base64 encoded raw document bytes.
+        parseOptions:
+          type: object
+          additionalProperties: false
+          properties:
+            backend:
+              type: string
+              description: Optional backend hint, for example paddleocr.
+            languageHints:
+              type: array
+              items:
+                type: string
+              maxItems: 8
+            pageRange:
+              type: object
+              additionalProperties: false
+              properties:
+                start:
+                  type: integer
+                  minimum: 1
+                end:
+                  type: integer
+                  minimum: 1
+    ParsedDocumentResponse:
+      type: object
+      required: [data, requestId]
+      properties:
+        data:
+          $ref: '#/components/schemas/ParsedDocument'
+        requestId:
+          type: string
+    ParsedDocument:
+      type: object
+      required: [content, backend, contentLength]
+      properties:
+        content:
+          type: string
+          description: Normalized text used by Knowledge chunking.
+        contentLength:
+          type: integer
+          minimum: 0
+        title:
+          type: string
+          nullable: true
+        backend:
+          type: string
+          description: Sanitized parser backend identifier.
+        pages:
+          type: array
+          description: Optional page-level text blocks for citation and debugging.
+          items:
+            $ref: '#/components/schemas/ParsedPage'
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+          description: Sanitized parser metadata. Must not include file paths, object keys, URLs, credentials, raw provider responses, or full debug logs.
+    ParsedPage:
+      type: object
+      required: [pageNumber, content]
+      properties:
+        pageNumber:
+          type: integer
+          minimum: 1
+        content:
+          type: string
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParsedBlock'
+    ParsedBlock:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        type:
+          type: string
+          nullable: true
+          description: Sanitized block type such as paragraph, table, title, or footer.
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          nullable: true
+        bbox:
+          type: array
+          nullable: true
+          minItems: 4
+          maxItems: 4
+          items:
+            type: number
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          properties:
+            code:
+              type: string
+              enum:
+                - validation_error
+                - unauthorized
+                - forbidden
+                - unsupported_media_type
+                - payload_too_large
+                - rate_limited
+                - dependency_error
+                - internal_error
+            message:
+              type: string
+            requestId:
+              type: string
+            fields:
+              type: object
+              additionalProperties:
+                type: string
