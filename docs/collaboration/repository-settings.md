@@ -66,6 +66,8 @@ check 名称补入 `contexts`。
   `GitHub Project：Software Teamwork` 的任务 issue。
 - 根据 issue 标题前缀强制同步 `Group`，并根据任务正文的 `优先级`、
   `批次`、`模块`、`Risk`、`依赖任务` 同步 GitHub Project 字段。
+- 根据任务正文的 `依赖任务` 和 `阻塞任务` 写入 GitHub Issue 原生
+  relationship；`并行任务` 只保留在正文中，不创建 blocking relationship。
 - 根据主责小组和模块自动补可用 label；当前 `L1nggTeam`、`JerryTeam`、`PrimeTeam`
   会作为小组 label，`Frontend` 和 `Special` 只同步为 Project `Group`，通常通过
   `frontend`、`ci`、`deployment`、`service:<name>` 等模块 label 标记。仓库不存在的

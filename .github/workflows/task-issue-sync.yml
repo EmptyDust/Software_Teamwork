@@ -118,6 +118,19 @@ jobs:
                 .filter(Boolean)
                 .join(', ') || '无';
             };
+            const extractIssueNumbers = (value) => {
+              const normalized = cleanValue(value || '');
+              if (!normalized || normalized === '无') {
+                return [];
+              }
+
+              const numbers = new Set();
+              for (const match of normalized.matchAll(/#(\d+)\b/gu)) {
+                numbers.add(Number(match[1]));
+              }
+
+              return [...numbers].filter((number) => Number.isInteger(number) && number > 0);
+            };
 
             const issueStatus = readField('状态') || 'Draft';
             const group = defaultGroupByPrefix[prefix];
@@ -133,6 +146,8 @@ jobs:
               ? 'Blocked'
               : (issueStatus === 'Draft' ? (explicitRisk || 'Needs Decision') : 'Normal');
             const dependency = normalizeDependency(readField('依赖任务'));
+            const dependencyIssueNumbers = extractIssueNumbers(readField('依赖任务'));
+            const blockingIssueNumbers = extractIssueNumbers(readField('阻塞任务'));
             const projectStatusByIssueStatus = {
               Draft: 'Todo',
               Ready: 'Todo',
@@ -241,6 +256,117 @@ jobs:
                 }
               }
             `;
+            const addBlockedByMutation = `
+              mutation($issueId: ID!, $blockingIssueId: ID!) {
+                addBlockedBy(input: {issueId: $issueId, blockingIssueId: $blockingIssueId}) {
+                  issue {
+                    number
+                  }
+                  blockingIssue {
+                    number
+                  }
+                }
+              }
+            `;
+            const getIssueDependencyNumbers = async (issueNumber, direction) => {
+              const route = direction === 'blocked_by'
+                ? 'GET /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by'
+                : 'GET /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocking';
+              const response = await github.request(route, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+
+              return new Set(response.data.map((dependencyIssue) => dependencyIssue.number));
+            };
+            const nodeIdByIssueNumber = new Map([[issue.number, issue.node_id]]);
+            const resolveIssueNodeId = async (issueNumber) => {
+              if (nodeIdByIssueNumber.has(issueNumber)) {
+                return nodeIdByIssueNumber.get(issueNumber);
+              }
+
+              const response = await github.rest.issues.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+              });
+              nodeIdByIssueNumber.set(issueNumber, response.data.node_id);
+              return response.data.node_id;
+            };
+            const addBlockedByRelationship = async ({ issueId, issueNumber, blockingIssueId, blockingIssueNumber }) => {
+              try {
+                await github.graphql(addBlockedByMutation, {
+                  issueId,
+                  blockingIssueId,
+                });
+                core.info(`Added native issue relationship: #${issueNumber} is blocked by #${blockingIssueNumber}.`);
+                return true;
+              } catch (error) {
+                if (/already|exist/i.test(error.message || '')) {
+                  core.info(`Native issue relationship already exists: #${issueNumber} is blocked by #${blockingIssueNumber}.`);
+                  return false;
+                }
+
+                throw error;
+              }
+            };
+            const syncNativeIssueRelationships = async () => {
+              const upstreamIssueNumbers = dependencyIssueNumbers.filter((issueNumber) => issueNumber !== issue.number);
+              const downstreamIssueNumbers = blockingIssueNumbers.filter((issueNumber) => issueNumber !== issue.number);
+
+              if (dependencyIssueNumbers.includes(issue.number) || blockingIssueNumbers.includes(issue.number)) {
+                core.warning(`Skipping self-referential native issue relationship for #${issue.number}.`);
+              }
+
+              if (upstreamIssueNumbers.length === 0 && downstreamIssueNumbers.length === 0) {
+                core.info('No native issue relationships to sync.');
+                return;
+              }
+
+              const existingBlockedBy = upstreamIssueNumbers.length > 0
+                ? await getIssueDependencyNumbers(issue.number, 'blocked_by')
+                : new Set();
+              const existingBlocking = downstreamIssueNumbers.length > 0
+                ? await getIssueDependencyNumbers(issue.number, 'blocking')
+                : new Set();
+              let addedCount = 0;
+              let skippedCount = 0;
+
+              for (const upstreamIssueNumber of upstreamIssueNumbers) {
+                if (existingBlockedBy.has(upstreamIssueNumber)) {
+                  skippedCount += 1;
+                  continue;
+                }
+
+                const blockingIssueId = await resolveIssueNodeId(upstreamIssueNumber);
+                const added = await addBlockedByRelationship({
+                  issueId: issue.node_id,
+                  issueNumber: issue.number,
+                  blockingIssueId,
+                  blockingIssueNumber: upstreamIssueNumber,
+                });
+                addedCount += added ? 1 : 0;
+              }
+
+              for (const downstreamIssueNumber of downstreamIssueNumbers) {
+                if (existingBlocking.has(downstreamIssueNumber)) {
+                  skippedCount += 1;
+                  continue;
+                }
+
+                const downstreamIssueId = await resolveIssueNodeId(downstreamIssueNumber);
+                const added = await addBlockedByRelationship({
+                  issueId: downstreamIssueId,
+                  issueNumber: downstreamIssueNumber,
+                  blockingIssueId: issue.node_id,
+                  blockingIssueNumber: issue.number,
+                });
+                addedCount += added ? 1 : 0;
+              }
+
+              core.info(`Native issue relationship sync complete: ${addedCount} added, ${skippedCount} already present.`);
+            };
 
             let syncState = 'blocked';
             let syncErrorMessage = '';
@@ -312,11 +438,13 @@ jobs:
                 `自动同步自 issue #${issue.number}；任务编号 ${taskCode}；由 Task Issue Sync 更新。`
               );
 
+              await syncNativeIssueRelationships();
+
               syncState = 'synced';
             } catch (error) {
               syncErrorMessage = error.message;
               core.warning(
-                `Project sync failed. Configure PROJECTS_TOKEN as a token owned by or granted access to the user-level Project '${projectName}', with Project read/write access. ${error.message}`
+                `Task issue sync failed. Configure PROJECTS_TOKEN as a token owned by or granted access to the user-level Project '${projectName}', with Project read/write access. Ensure GITHUB_TOKEN has issue write permission for relationship sync. ${error.message}`
               );
             }
 
@@ -340,7 +468,7 @@ jobs:
             }
 
             if (syncState === 'blocked') {
-              core.setFailed(`Task issue #${issue.number} Project sync blocked. ${syncErrorMessage}`);
+              core.setFailed(`Task issue #${issue.number} sync blocked. ${syncErrorMessage}`);
             } else {
               core.info(`Task issue #${issue.number} sync state: ${syncState}.`);
             }

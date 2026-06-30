@@ -191,8 +191,8 @@ gh issue edit <number> \
 ## 6. 等待 Task Issue Sync
 
 本仓库配置了 Task Issue Sync 自动化。Issue 满足以下条件时，workflow 会自动把它加入
-GitHub Project `Software Teamwork`，同步 Project 字段，补 label，并把正文中的
-`Project sync` 改为 `synced` 或 `blocked`：
+GitHub Project `Software Teamwork`，同步 Project 字段和 GitHub Issue 原生依赖关系，
+补 label，并把正文中的 `Project sync` 改为 `synced` 或 `blocked`：
 
 - 标题匹配 `[S-001] ...`、`[A-001] ...` 等任务标题格式。
 - 正文包含 `GitHub Project：Software Teamwork`。
@@ -206,9 +206,12 @@ GitHub Project `Software Teamwork`，同步 Project 字段，补 label，并把�
 | 加入 GitHub Project `Software Teamwork` | Issue 标题和 `GitHub Project` 字段。 |
 | 同步 `Status`、`Priority`、`Batch`、`Module`、`Risk`、`Dependency` | Issue 正文任务字段。 |
 | 同步 `Group` | Issue 标题编号前缀。 |
+| 写入 Issue relationship | `依赖任务` 让当前 issue blocked by 上游；`阻塞任务` 让下游 issue blocked by 当前 issue。 |
 | 写入 `OwnerNote` | workflow 自动生成。 |
 | 添加可用 label | 主责小组和模块。 |
 | 回写 `Project sync` | 同步结果。 |
+
+`并行任务` 只表示需要同步契约的并行工作，不创建 GitHub Issue 原生 blocking relationship。
 
 检查同步结果：
 
@@ -225,6 +228,7 @@ gh issue view <number> --repo Sakayori-Iroha-168/Software_Teamwork --json body,l
 - 检查正文是否包含 `GitHub Project：Software Teamwork`。
 - 检查必填任务字段是否能被 workflow 解析。
 - 检查 `PROJECTS_TOKEN` 是否可访问 user-level Project。
+- 检查默认 `GITHUB_TOKEN` 是否有 issue 写权限，能否调用 issue dependency relationship API。
 - 必要时由维护者检查 Project View 过滤条件是否包含对应 `Group`。
 
 ## 7. 认领和执行
