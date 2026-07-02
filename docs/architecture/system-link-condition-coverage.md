@@ -31,7 +31,7 @@
 | 分类 | 需要覆盖的条件 |
 | --- | --- |
 | Auth | 未登录、token 无效或过期、已登录。 |
-| Permission | 普通用户、管理员、超级管理员、owner、非 owner、权限不足。 |
+| Permission | 角色、权限字符串、owner 访问和权限不足分支；具体规则以各服务权限矩阵为准。 |
 | Request | 合法请求、缺字段、字段非法、multipart/JSON 类型不匹配、分页或过滤参数越界。 |
 | Resource | 资源存在、不存在、已删除、未 ready、状态冲突、重复名称或重复激活配置。 |
 | Dependency | 下游可用、下游超时、下游 4xx/5xx、数据库/Redis/Qdrant/File storage/provider 不可用。 |
@@ -98,7 +98,7 @@
 | 分类 | 分支 |
 | --- | --- |
 | Auth | 无 bearerAuth 的 health/auth create paths；需要 bearerAuth 的业务路径。 |
-| Permission | Gateway 可做基础路由保护，领域权限仍由 owner service 校验。 |
+| Permission | Gateway 认证上下文和 owner service 复核责任见 [Gateway 权限矩阵](../services/gateway/docs/permission-matrix.md)。 |
 | Resource | owner service 返回 not found、conflict、not ready 时由 gateway 映射为公开错误。 |
 | Dependency | Redis 未命中、Redis 不可用、owner base URL 缺失、owner timeout。 |
 | Streaming | QA SSE 流式转发 vs 普通 JSON；content 二进制代理 vs JSON 错误。 |
@@ -211,8 +211,8 @@
 
 | 分类 | 分支 |
 | --- | --- |
-| Auth | 所有业务路径需要 bearer token；admin parser configs 需要管理员权限。 |
-| Permission | 用户可见知识库 vs forbidden；管理员 runtime config vs 普通用户。 |
+| Auth | 所有业务路径需要 bearer token；admin parser configs 的认证入口见 [Gateway 权限矩阵](../services/gateway/docs/permission-matrix.md)。 |
+| Permission | 知识库可见性、parser config 管理权限和 forbidden 分支见 [Knowledge 权限矩阵](../services/knowledge/docs/permission-matrix.md)。 |
 | Request | 创建/更新知识库字段合法 vs validation_error；上传文件合法 vs multipart/大小/content type 错误。 |
 | Resource | knowledge base 存在、已删除；document 存在、已删除、processing、ready、failed。 |
 | Dependency | File handoff 失败、Redis 入队失败、PostgreSQL 失败。 |
@@ -333,7 +333,7 @@
 | 分类 | 分支 |
 | --- | --- |
 | Auth | 管理端 profile API 需要 bearer auth；内部调用需要 service token。 |
-| Permission | 管理员/超级管理员可管理 profile；普通用户 forbidden。 |
+| Permission | Model profile 管理权限见 [AI Gateway 权限矩阵](../services/ai-gateway/docs/permission-matrix.md)。 |
 | Request | profile 字段非法、敏感 default parameter、chat/embedding/rerank body 非法。 |
 | Resource | profile 不存在、disabled、deleted、credential 未配置、purpose 不匹配。 |
 | Config | model 与 profile model 精确匹配 vs mismatch；默认 profile 存在 vs 缺失。 |
@@ -376,7 +376,7 @@
 | 分类 | 分支 |
 | --- | --- |
 | Auth | 所有 QA 公开路径需要 bearer token。 |
-| Permission | owner 可查改自己的 session/message/run；非 owner 返回 403 或隐藏为 404；管理员跨用户访问当前未实现。 |
+| Permission | QA owner 约束、settings 管理权限和管理员跨用户限制见 [QA 权限矩阵](../services/qa/docs/permission-matrix.md)。 |
 | Request | session/message/config/test 请求合法 vs validation_error。 |
 | Resource | session 不存在/已删除；message/run/citation 不存在；事件回放为空；引用来源不可用。 |
 | Config | QA config 缺失、LLM profile 缺失、tool whitelist 不允许、AI Gateway token/profile 不匹配。 |
@@ -415,7 +415,7 @@
 
 | 分类 | 分支 |
 | --- | --- |
-| Permission | 管理员可创建配置/测试；普通用户能力以 OpenAPI 和服务实现为准。 |
+| Permission | QA 配置、检索测试和指标权限见 [QA 权限矩阵](../services/qa/docs/permission-matrix.md)。 |
 | Request | query、knowledgeBaseIds、threshold、topK 合法 vs validation_error。 |
 | Resource | QA config 不存在、知识库不存在、无命中、testRun 不存在。 |
 | Dependency | Knowledge 返回 dependency_error、timeout、validation/forbidden/not_found。 |
@@ -455,7 +455,7 @@
 | 分类 | 分支 |
 | --- | --- |
 | Auth | 所有 Document 公开路径需要 bearer token。 |
-| Permission | owner、管理员、普通用户；settings `PATCH` 仅 admin/super_admin；非 owner report 访问 forbidden/not_found。 |
+| Permission | Document 报告 owner 约束、settings 管理权限和拒绝规则见 [Document 权限矩阵](../services/document/docs/permission-matrix.md)。 |
 | Request | reportType、templateId、jobType、section payload、multipart 文件合法 vs validation_error。 |
 | Resource | template/material/report/outline/section/job/file 存在、已删除、未 ready、状态冲突。 |
 | Dependency | Document PostgreSQL、Redis/asynq、File Service、AI Gateway、可选 Knowledge 不可用。 |
@@ -494,7 +494,7 @@
 
 | 分类 | 分支 |
 | --- | --- |
-| Permission | 管理员/超级管理员可更新 settings；普通用户 forbidden。 |
+| Permission | Report settings、统计和日志权限见 [Document 权限矩阵](../services/document/docs/permission-matrix.md)。 |
 | Request | settings patch 合法 vs 字段非法；统计时间范围合法 vs 越界。 |
 | Resource | 默认模板/profile 不存在、已删除、disabled。 |
 | Dependency | AI Gateway profile 校验失败、Document PostgreSQL 不可用。 |
@@ -529,7 +529,7 @@
 
 | 分类 | 分支 |
 | --- | --- |
-| Permission | 普通用户 forbidden；管理员可管理；超级管理员同样允许。 |
+| Permission | Admin runtime config 权限见 [Gateway 权限矩阵](../services/gateway/docs/permission-matrix.md)、[AI Gateway 权限矩阵](../services/ai-gateway/docs/permission-matrix.md) 和 [Knowledge 权限矩阵](../services/knowledge/docs/permission-matrix.md)。 |
 | Request | 创建/更新字段合法 vs validation_error；重复名称 conflict。 |
 | Resource | profile/config 存在、不存在、deleted、enabled/disabled。 |
 | Config | API key write-only；parser config fallback；model profile purpose/model/dimensions/topN 校验。 |

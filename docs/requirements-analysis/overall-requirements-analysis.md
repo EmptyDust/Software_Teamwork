@@ -54,19 +54,22 @@
 
 ## 4. 用户角色与权限
 
-| 角色 | 定位 | 主要权限 |
-| --- | --- | --- |
-| 标准用户 | 使用系统完成检索、问答、报告生成 | 查询有权限访问的知识库，发起问答，生成和下载自己的报告 |
-| 管理员 | 管理知识资产和业务配置 | 管理知识库、文档、报告模板、报告支撑材料、模型配置、检索测试、统计看板 |
-| 超级管理员 | 系统最高权限角色 | 拥有全部管理能力，负责用户、角色、全局配置和敏感操作 |
+系统角色分为标准用户、管理员和超级管理员；具体角色能力、权限字符串、owner 约束和拒绝规则由各服务权限矩阵维护：
+
+- [Auth 权限矩阵](../services/auth/docs/permission-matrix.md)
+- [Gateway 权限矩阵](../services/gateway/docs/permission-matrix.md)
+- [Knowledge 权限矩阵](../services/knowledge/docs/permission-matrix.md)
+- [QA 权限矩阵](../services/qa/docs/permission-matrix.md)
+- [Document 权限矩阵](../services/document/docs/permission-matrix.md)
+- [File 权限矩阵](../services/file/docs/permission-matrix.md)
+- [AI Gateway 权限矩阵](../services/ai-gateway/docs/permission-matrix.md)
+- [Parser 权限矩阵](../services/parser/docs/permission-matrix.md)
 
 权限原则：
 
 - 所有 API 请求必须经过身份认证。
 - 首期认证方式统一为 opaque Bearer token，由 `gateway` 或对应服务校验 `Authorization: Bearer <accessToken>`；access token 不采用 JWT，前端不得解析 token 内容。
-- 管理功能仅限管理员和超级管理员访问。
-- 用户只能检索和下载自己有权限访问的知识库、文档、引用原文和报告文件。
-- Agent 工具选择需要结合权限判断。例如用户没有报告生成权限时，即使模型尝试调用报告生成工具，也不能执行该工具。
+- 管理功能、资源访问和 Agent 工具执行必须按对应服务权限矩阵判断。
 - 首期数据权限采用角色级 RBAC，暂不引入部门、组织、电厂、专业等多维权限。
 - 删除知识库、文档、模板、报告记录等操作需要二次确认；首期不建设完整审计日志和审计查询服务，但配置变更、任务失败、删除结果应保留基础排查字段。
 
@@ -127,8 +130,8 @@
 ### 7.1 用户与权限
 
 - `User`：用户账号、显示名、状态、创建时间。
-- `Role`：标准用户、管理员、超级管理员。
-- `Permission`：知识管理、知识问答、报告生成、系统配置等角色权限；数据分析权限仅作为后续扩展预留。
+- `Role`：标准用户、管理员、超级管理员；角色授权口径见 [Auth 权限矩阵](../services/auth/docs/permission-matrix.md)。
+- `Permission`：知识管理、知识问答、报告生成、系统配置等角色权限；具体权限字符串见 [Auth 权限矩阵](../services/auth/docs/permission-matrix.md)，数据分析权限仅作为后续扩展预留。
 - `AccessToken`：opaque Bearer 登录凭证，由 `auth` 签发并经 `gateway` 校验。
 
 ### 7.2 知识管理

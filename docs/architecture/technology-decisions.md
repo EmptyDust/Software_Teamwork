@@ -203,7 +203,7 @@ public/internal 命名落位。
 | AI Gateway public API | `3.0.3` | `0.1.0` | 明确声明 AI Gateway 无直接前端公开路径；前端模型配置入口在 Gateway public API。 |
 | AI Gateway internal API | `3.0.3` | `0.1.0` | 服务间模型配置和 OpenAI-compatible 调用契约。 |
 | Parser public API | `3.0.3` | `0.1.0` | Parser 无 Gateway 公开 API；以空 `paths` 明确声明。 |
-| Parser internal API | `3.0.3` | `0.1.0` | 服务间文档解析运行时契约，只供 Knowledge ingestion 等后端服务调用。 |
+| Parser internal API | `3.0.3` | `0.1.0` | 服务间文档解析运行时契约，供 Knowledge ingestion、QA 会话附件解析等后端服务调用。 |
 | QA service public API draft | `3.0.3` | `0.1.0` | QA Agent Host 服务级 public 设计面；稳定前端入口仍以 Gateway OpenAPI 为准。 |
 | QA service internal API / implementation copy | `3.1.0` | `1.0.0` | QA 服务本地运行契约和实现副本。 |
 | Document service public API draft | `3.0.3` | `0.1.0` | 报告生成服务级 public 设计面；稳定前端入口仍以 Gateway OpenAPI 为准。 |

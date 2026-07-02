@@ -143,20 +143,7 @@ src/features/report-generation/
 
 ## 6. 权限与角色边界
 
-普通用户：
-
-- 可创建报告、生成大纲、编辑大纲、生成正文、编辑正文、导出 DOCX、查看/删除自己的报告记录。
-- 可选择已启用模板。
-- 可引用已发布专业素材。
-
-管理员/超级管理员：
-
-- 可上传、查看、编辑、删除或停用模板。
-- 可使用模板可视化编辑器维护 `outlineSchema` 和 `styleConfig`。
-- 可上传、查看、删除专业素材。
-- 可查看统计、任务、操作日志和 requestId 诊断信息。
-
-权限不足时，后端返回 `403 forbidden`。前端应展示无权限提示，并隐藏高风险操作入口。
+Document 的角色能力、owner 约束、settings/统计/日志管理权限和 `403 forbidden` 语义统一维护在 [Document 权限矩阵](permission-matrix.md)。本文只保留前端 API 使用建议，不重复维护权限表。
 
 ## 7. 状态处理
 
@@ -207,7 +194,6 @@ src/features/report-generation/
 - [ ] 所有 JSON 响应按 `data/requestId` 或分页 envelope 解析。
 - [ ] 所有公开字段使用 camelCase，例如 `requestId`、`reportType`、`templateId`、`businessObject`。
 - [ ] 生成大纲、生成全文、导出 DOCX、重试失败任务均创建资源或任务。
-- [ ] 普通用户不显示模板/素材上传和删除入口。
-- [ ] 管理员入口支持模板、素材、统计、日志和接口诊断。
+- [ ] 前端按 [Document 权限矩阵](permission-matrix.md) 控制模板、素材、统计、日志和接口诊断入口展示。
 - [ ] 文件下载不暴露 MinIO object key 或内部 URL。
 - [ ] 任务失败和部分成功能保留已生成内容，并允许重试。

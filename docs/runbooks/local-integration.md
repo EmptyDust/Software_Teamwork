@@ -298,7 +298,8 @@ go test ./internal/integration -run '^TestGatewayKnowledgeOwnerRouteSmoke$' -cou
 - 根级 Compose 需要带 `--profile ai` 启动，使 AI Gateway、migration 和 placeholder
   profile seed 可用。
 - `QA_SETTINGS_OPEN=true` 只建议在本地 smoke 环境启用，用于允许测试通过 Gateway
-  创建本轮 QA/LLM config versions。也可改用具备 `qa:settings:write` 权限或
+  创建本轮 QA/LLM config versions。也可改用符合
+  [QA 权限矩阵](../services/qa/docs/permission-matrix.md) 的管理账号或
   `QA_ADMIN_USER_IDS` 的账号。
 - `QA_SMOKE_CHAT_PROFILE_ID` 和 `QA_SMOKE_CHAT_MODEL` 必须指向 AI Gateway 中可实际
   调用的 chat profile/model。`.env.example` 的 `default-chat` /
@@ -364,7 +365,7 @@ chunks、jobs、documents、knowledge base 的顺序删除本轮 Knowledge Postg
 | Knowledge ingestion | `document ... did not become ready` 或 `chunkCount = 0` | 查 `docker compose logs knowledge redis postgres qdrant`；检查 `processing_jobs` 状态、Redis/asynq 投递和 Qdrant/local vector 配置。 |
 | Knowledge retrieval | `Knowledge retrieval stage: ...`、无 expected hit 或 rerank trace 异常 | 查 `docker compose logs gateway knowledge ai-gateway qdrant`；确认 `knowledge-queries` 返回 ready 文档 chunk，`rerank=true` 在无 `RERANK_MODEL` 时只证明 no-op fallback trace。 |
 | AI Gateway | QA message 返回 `502`、model error 或 provider unavailable | 查 `docker compose logs qa ai-gateway`；确认 chat profile enabled、model exact-match、credential/provider 可用。不要粘贴 provider 原始错误 body 或 API key。 |
-| QA | QA config POST `403/400`、answer 未完成、无 citation | 确认 `QA_SETTINGS_OPEN=true` 或账号具备 `qa:settings:write`；确认模型支持 OpenAI-compatible tool/function calling，并且 QA config 只启用 `search_knowledge`。 |
+| QA | QA config POST `403/400`、answer 未完成、无 citation | 确认 `QA_SETTINGS_OPEN=true` 或账号满足 [QA 权限矩阵](../services/qa/docs/permission-matrix.md) 的配置写入要求；确认模型支持 OpenAI-compatible tool/function calling，并且 QA config 只启用 `search_knowledge`。 |
 
 如果只需要验证 Knowledge ingestion 和 retrieval，不要运行本 RAG smoke；先使用上面的
 `KNOWLEDGE_INGESTION_SMOKE` 或 `GATEWAY_KNOWLEDGE_OWNER_SMOKE` 缩小范围。

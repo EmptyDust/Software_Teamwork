@@ -9,6 +9,7 @@ RESTful 路径、统一响应和错误 envelope 以 [前后端集成契约](../.
 | 文档 | 说明 |
 | --- | --- |
 | [数据模型](docs/data-models.md) | File Service 拥有的基础文件对象元数据、对象存储引用和清理模型。 |
+| [权限矩阵](docs/permission-matrix.md) | File 内部服务认证、owner service 授权责任和公开资源复用边界。 |
 | [实现说明](docs/implementation.md) | 当前代码实现、契约对齐、缺口、临时后端和最近检查记录。 |
 | [服务 OpenAPI](api/internal.openapi.yaml) | File Service 内部 `/internal/v1/files/**` API 契约；不是前端公开契约。 |
 
@@ -157,11 +158,7 @@ JSON 成功、分页和错误响应遵循 [前后端集成契约](../../architec
 
 ## 权限与上下文要求
 
-`file` 服务是内部基础服务，必须只接受 gateway 或后端 owner service 的可信调用。前端不得设置 `X-User-Id`、`X-User-Roles`、`X-User-Permissions`；这些字段只能由 gateway 在认证后注入，并由 owner service 透传或转换为服务间调用上下文。
-
-配置 `FILE_DATABASE_URL` 后，`/internal/v1/files/**` 基础文件对象接口必须校验 `X-Service-Token`。有效 token 来自 `FILE_INTERNAL_SERVICE_TOKEN`，未设置时可回退到共享 `INTERNAL_SERVICE_TOKEN`。认证失败返回统一 `401 unauthorized` 错误 envelope，不返回内部配置、token、数据库连接串或存储引用。
-
-业务资源可见性由 owner service 判断：知识库文档由 `knowledge` 定义，报告素材、模板和报告文件由 `document` 定义，`file` 不复制这些业务权限规则。`file` 只校验调用方服务身份、request id、基础文件操作权限和必要的服务边界约束。
+`file` 服务的内部服务认证、owner service 授权责任、公开资源映射和 `401` / `403` 拒绝规则统一维护在 [File 权限矩阵](docs/permission-matrix.md)。README 只保留文件能力和存储边界，不重复维护权限规则。
 
 ## 对象存储与元数据要求
 

@@ -18,6 +18,7 @@ RESTful 路径、统一响应和错误 envelope 以 [前后端集成契约](../.
 | [`docs/data-models.md`](docs/data-models.md) | 报告生成逻辑数据模型、实体关系、关键字段和存储约束。 |
 | [`docs/frontend-api-design.md`](docs/frontend-api-design.md) | 前端 API 层、页面到接口映射和类型使用建议。 |
 | [`docs/generation-workflow.md`](docs/generation-workflow.md) | 报告 job、attempt、event、worker、AI Gateway、File Service 和 DOCX 创建的目标流程与当前缺口。 |
+| [`docs/permission-matrix.md`](docs/permission-matrix.md) | 报告模板、素材、报告、任务、文件、settings、统计和日志的权限矩阵。 |
 | [`docs/implementation.md`](docs/implementation.md) | 当前代码实现、契约对齐、缺口和最近检查记录。 |
 | [`docs/requirements.md`](docs/requirements.md) | 原始报告生成需求沉淀和验收点。 |
 
@@ -68,18 +69,7 @@ document service
    +--> AI Gateway internal model profiles and OpenAI-compatible chat API
 ```
 
-Gateway 调用 `document` 服务时应传递：
-
-| Header | 说明 |
-| --- | --- |
-| `X-Request-Id` | 贯穿一次前端请求或工具调用的 request id。 |
-| `X-User-Id` | 已认证用户 ID。 |
-| `X-User-Roles` | 逗号分隔的角色列表。 |
-| `X-User-Permissions` | 逗号分隔的权限列表。 |
-| `X-Forwarded-For` | 原始客户端地址链。 |
-| `X-Forwarded-Proto` | 原始协议。 |
-
-前端不得设置 `X-User-Id`、`X-User-Roles`、`X-User-Permissions`；这些字段只能由 gateway 在认证后注入。`document` 只消费这些上下文做权限判断、审计、创建人记录和追踪，不负责登录态创建。
+Document 的认证上下文、报告 owner 约束、settings/统计/日志管理权限和拒绝规则统一维护在 [Document 权限矩阵](docs/permission-matrix.md)。README 不重复维护 header 表或角色权限表。
 
 ## 公开资源范围
 

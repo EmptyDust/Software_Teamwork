@@ -3,11 +3,12 @@ info:
   title: Parser Runtime Internal API
   version: 0.1.0
   description: |
-    Internal document parser runtime API. Knowledge owns ingestion state,
-    chunking, embedding, Qdrant indexing, retrieval, and public parser
-    configuration. Parser only converts raw document bytes into normalized
-    parsed content. The target runtime is Python/PaddleOCR PP-StructureV3,
-    hidden behind this HTTP contract.
+    Internal document parser runtime API. Knowledge owns long-lived ingestion
+    state, chunking, embedding, Qdrant indexing, retrieval, and public parser
+    configuration. QA owns session attachment metadata, temporary parsed
+    chunks, and attachment lifecycle. Parser only converts raw document bytes
+    into normalized parsed content. The target runtime is Python/PaddleOCR
+    PP-StructureV3, hidden behind this HTTP contract.
 x-api-scope: internal-service
 servers:
   - url: /
@@ -111,7 +112,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [knowledge]
+        enum: [knowledge, qa]
     UserIdHeader:
       name: X-User-Id
       in: header

@@ -205,24 +205,13 @@ AuthSession 1 ── N AuthSecurityEvent
 | `created_at` | datetime | 创建时间。 |
 | `updated_at` | datetime | 更新时间。 |
 
-权限字符串建议格式：
+权限字符串格式：
 
 ```text
 <domain>:<action>
 ```
 
-示例：
-
-```text
-knowledge:read
-knowledge:write
-document:upload
-report:read
-report:write
-qa:settings:read
-qa:settings:write
-admin:model-profile:write
-```
+当前 seed 的角色、权限字符串集合和角色授权关系统一维护在 [Auth 权限矩阵](permission-matrix.md)，本文只定义权限字段的数据模型。
 
 公开 API 字段映射：
 

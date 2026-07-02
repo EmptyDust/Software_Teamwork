@@ -8,6 +8,7 @@
 - [Gateway Public OpenAPI 契约](api/public.openapi.yaml)
 - [Gateway Internal OpenAPI 契约](api/internal.openapi.yaml)
 - [Gateway Active API Owner Map](docs/active-api-owner-map.md)
+- [Gateway 权限矩阵](docs/permission-matrix.md)
 - [Gateway 实现说明](docs/implementation.md)
 - [技术选型基线](../../architecture/technology-decisions.md)
 
@@ -115,7 +116,7 @@ Gateway 后续实现必须遵循 [技术选型基线](../../architecture/technol
 4. Gateway 将完整会话身份写入 Redis，缓存键使用 `gateway:session:<accessTokenHash>`，TTL 与 `expiresAt` 对齐。
 5. 前端后续请求携带 `Authorization: Bearer <accessToken>`。
 6. Gateway 从 Redis 查询会话；命中且未过期时，不需要每次调用 auth 服务。
-7. Gateway 基于缓存的会话身份向下游服务注入 `X-User-Id`、`X-User-Roles`、`X-User-Permissions` 和 `X-Request-Id`。
+7. Gateway 基于缓存的会话身份向下游服务注入认证上下文；具体 header 和权限复核责任见 [Gateway 权限矩阵](docs/permission-matrix.md)。
 8. 当前会话删除时 Gateway 调用 auth 删除会话，并删除 Redis 中的对应缓存。
 
 Redis 会话缓存值应至少包含：
@@ -140,18 +141,7 @@ Redis 会话缓存值应至少包含：
 - Redis 不可用时，业务接口返回 `502 dependency_error`；登录、注册和登出等 auth 流程可以按实现策略选择失败或降级，但必须保持错误 envelope 一致。
 - 权限变更、用户禁用或安全事件需要让旧会话失效时，auth 服务应提供撤销能力，Gateway 删除对应 Redis 会话缓存。
 
-Gateway 调用下游服务时应传递：
-
-| Header | 说明 |
-| --- | --- |
-| `X-Request-Id` | 贯穿一次前端请求的 request id。 |
-| `X-User-Id` | 已认证用户 ID。 |
-| `X-User-Roles` | 逗号分隔的角色列表。 |
-| `X-User-Permissions` | 逗号分隔的权限列表，字段细节由 auth 契约细化。 |
-| `X-Forwarded-For` | 原始客户端地址链。 |
-| `X-Forwarded-Proto` | 原始协议。 |
-
-下游服务仍需在自己的边界做权限校验，不能只依赖前端传参。
+Gateway 的公开入口、下游认证上下文、角色权限口径、owner service 复核责任和拒绝规则统一维护在 [Gateway 权限矩阵](docs/permission-matrix.md)。README 不重复维护 header 表；会话缓存字段的存储模型见 [Gateway 数据模型文档](docs/data-models.md)。
 
 ## Gateway User / Session 行为
 

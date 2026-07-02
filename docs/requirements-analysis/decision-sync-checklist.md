@@ -53,10 +53,10 @@
 | 编号 | 原问题 | 同步结果 |
 | --- | --- | --- |
 | QA1 | 流式中断是否保存部分回答？ | 保存已生成部分内容，并标记为 `cancelled`；依赖错误标记为 `failed`。 |
-| QA2 | 无权限知识库如何处理？ | 按角色级 RBAC 和知识管理可见性过滤不可访问知识库；调试信息可返回 filtered 数量。 |
+| QA2 | 无权限知识库如何处理？ | 按 [Knowledge 权限矩阵](../services/knowledge/docs/permission-matrix.md) 和 [QA 权限矩阵](../services/qa/docs/permission-matrix.md) 过滤不可访问知识库；调试信息可返回 filtered 数量。 |
 | QA3 | 引用是否保存快照？ | 保存引用片段快照，避免源文档变更或删除后历史回答不可追溯。 |
 | QA4 | 思考过程展示是否展示原始推理链？ | 不展示原始 chain-of-thought，只展示处理过程摘要。 |
-| QA5 | 管理员能否查看或删除普通用户会话？ | 管理员和超级管理员可按角色级 RBAC 查看、软删除全站会话；标准用户只能管理自己的会话。 |
+| QA5 | 管理员能否查看或删除普通用户会话？ | 以 [QA 权限矩阵](../services/qa/docs/permission-matrix.md) 为准；本清单不重复维护跨用户会话规则。 |
 | QA6 | `data_analysis` 相关请求怎么返回？ | 首期不注册数据分析工具；如模型或用户请求数据分析，返回 `unsupported_intent` 或普通说明，不执行数据分析任务。 |
 | QA7 | Agent 是否展示原始工具参数和结果？ | 不展示。只保存和返回脱敏后的 `argumentsSummary`、`resultSummary` 和用户可见处理摘要。 |
 
@@ -70,7 +70,7 @@
 | R4 | 图/表编号模式是否首期实现？ | 首期只实现全局编号 `global`；`by_chapter` 字段保留但不作为首期验收。 |
 | R5 | DOCX 统一样式是否首期必须？ | 首期必须有默认 `styleProfile`，用于字体、标题层级、表格样式和页眉页脚；可视化样式编辑器不进入首期。 |
 | R6 | AI 大纲生成是否进入首期？ | 首期大纲生成使用 `mode=template`；`mode=ai` 保留接口枚举但返回暂不支持。 |
-| R7 | 管理员能否查看或删除全局报告？ | 管理员和超级管理员可按角色级 RBAC 查看、软删除全站报告；标准用户只能管理自己的报告。 |
+| R7 | 管理员能否查看或删除全局报告？ | 以 [Document 权限矩阵](../services/document/docs/permission-matrix.md) 为准；本清单不重复维护全局报告访问规则。 |
 
 ## 4. 已定默认方案与后续演进
 

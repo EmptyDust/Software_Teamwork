@@ -62,25 +62,7 @@ Swagger UI 约定：
 
 ### 2.3 认证与权限
 
-首期统一采用 opaque Bearer token：
-
-```http
-Authorization: Bearer <accessToken>
-```
-
-`gateway` 或服务侧鉴权中间件负责校验 token，并向下游传递用户 ID、角色和权限上下文。当前不为知识管理 API 单独设计独立会话鉴权通道。
-
-权限要求：
-
-| 能力 | 标准用户 | 管理员 | 超级管理员 |
-| --- | --- | --- | --- |
-| 查看有权限知识库 | 支持 | 支持 | 支持 |
-| 创建/编辑/删除知识库 | 不支持 | 支持 | 支持 |
-| 上传/删除文档 | 按角色级 RBAC 和知识库可见性控制 | 支持 | 支持 |
-| 修改模型/解析配置 | 不支持 | 支持 | 支持 |
-| 检索测试 | 不支持 | 支持 | 支持 |
-
-首期只做角色级 RBAC，不引入组织、电厂、专业等多维数据权限。
+Knowledge 首期统一采用 opaque Bearer token，不为知识管理 API 单独设计独立会话鉴权通道。角色能力、权限字符串、知识库可见性、parser config 管理权限和首期 RBAC 边界统一维护在 [Knowledge 权限矩阵](permission-matrix.md)。
 
 ### 2.4 通用响应结构
 
@@ -198,11 +180,7 @@ A-11 runtime。端到端 smoke 可以登记为 integration follow-up，不应阻
 }
 ```
 
-权限说明：
-
-- 首期按角色级 RBAC 和知识库可见性控制访问。
-- `private`、`team`、`public` 可作为可见性枚举保留；组织、电厂、专业等多维权限不作为首期要求。
-- `team` 首期可按角色级 RBAC 和创建人范围实现，不要求接入组织树。
+权限说明见 [Knowledge 权限矩阵](permission-matrix.md)；本文只保留 `private`、`team`、`public` 等资源字段的 schema 语义。
 
 ### 3.2 KnowledgeDocument
 

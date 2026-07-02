@@ -10,6 +10,7 @@ RESTful 路径、统一响应和错误 envelope 以 [前后端集成契约](../.
 | --- | --- |
 | [API 契约](docs/api-contract.md) | 知识管理公开接口、权限、错误码和跨服务边界。 |
 | [数据模型](docs/data-models.md) | Knowledge Service 拥有的 PostgreSQL、Qdrant 和运行时逻辑模型。 |
+| [权限矩阵](docs/permission-matrix.md) | 知识库、文档、检索和 parser config 的角色/权限矩阵。 |
 | [实现说明](docs/implementation.md) | 当前代码实现、契约对齐、缺口、临时后端和最近检查记录。 |
 | [Parser Runtime 服务文档](../parser/README.md) | 文档解析运行时和 PaddleOCR 边界；Knowledge 只通过内部 HTTP 调用。 |
 
@@ -74,18 +75,7 @@ knowledge service
    +--> AI Gateway /internal/v1/embeddings and /internal/v1/rerankings
 ```
 
-Gateway 调用 knowledge 服务时应传递：
-
-| Header | 说明 |
-| --- | --- |
-| `X-Request-Id` | 贯穿一次前端请求的 request id。 |
-| `X-User-Id` | 已认证用户 ID。 |
-| `X-User-Roles` | 逗号分隔的角色列表。 |
-| `X-User-Permissions` | 逗号分隔的权限列表。 |
-| `X-Forwarded-For` | 原始客户端地址链。 |
-| `X-Forwarded-Proto` | 原始协议。 |
-
-前端不得设置 `X-User-Id`、`X-User-Roles`、`X-User-Permissions`；这些字段只能由 gateway 在认证后注入。
+Knowledge 的认证上下文、角色/权限矩阵、parser config 管理权限和拒绝规则统一维护在 [权限矩阵](docs/permission-matrix.md)。README 不重复维护 header 表或角色权限表。
 
 ## 公开资源范围
 

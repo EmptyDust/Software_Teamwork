@@ -13,6 +13,7 @@ RESTful 路径、统一响应和错误 envelope 以 [前后端集成契约](../.
 | [AI Gateway Internal OpenAPI](api/internal.openapi.yaml) | 内部服务机器可读 API 契约。 |
 | [AI Gateway Public OpenAPI](api/public.openapi.yaml) | 显式声明无前端直连公开 API。 |
 | [数据模型](docs/data-models.md) | 模型 profile、provider 凭据、配置审计、脱敏调用日志和安全约束。 |
+| [权限矩阵](docs/permission-matrix.md) | 管理端 model profile 权限、内部模型调用服务认证和 provider 凭据保护边界。 |
 | [Provider Adapter 说明](docs/provider-adapters.md) | Chat、embedding、rerank provider adapter 的请求映射、响应校验、脱敏和 usage aggregate 约束。 |
 | [实现说明](docs/implementation.md) | 当前代码实现、契约对齐、缺口和最近检查记录。 |
 
@@ -48,16 +49,7 @@ public gateway /api/v1/**              (frontend-facing only)
                                                +--> local compatible provider
 ```
 
-调用方必须把用户和请求上下文作为内部 header 传递给 AI Gateway。AI Gateway 使用这些上下文做审计、配额预留和问题排查，但不因此拥有领域权限判断。
-
-| Header | 必填 | 说明 |
-| --- | --- | --- |
-| `X-Request-Id` | 建议 | 请求追踪 ID；缺失时 AI Gateway 应生成一个并返回。 |
-| `X-Service-Token` | 是 | 内部服务认证凭据。具体签发和轮换方式后续由部署安全策略定义。 |
-| `X-User-Id` | 建议 | 触发本次 AI 调用的用户 ID。后台任务没有用户时可缺省。 |
-| `X-User-Roles` | 否 | 逗号分隔角色列表，用于审计和后续配额策略。 |
-| `X-User-Permissions` | 否 | 逗号分隔权限列表，用于审计和后续配额策略。 |
-| `X-Caller-Service` | 是 | 调用方服务名，例如 `qa`、`knowledge`、`document`。 |
+调用方必须把用户和请求上下文作为内部 header 传递给 AI Gateway。AI Gateway 使用这些上下文做审计、配额预留和问题排查，但不因此拥有领域权限判断。管理端权限、内部服务认证、caller service 白名单和模型调用拒绝规则统一维护在 [AI Gateway 权限矩阵](docs/permission-matrix.md)。
 
 前端不得直接设置或调用这些内部接口。模型配置的前端可用管理 API 由 public `gateway` 提供：`/api/v1/admin/model-profiles` 和 `/api/v1/admin/model-profiles/{profileId}`。AI Gateway 只作为内部配置源，保存 provider 配置和 API key 写入状态，并确保响应只返回 `apiKeyConfigured` 等脱敏字段。
 

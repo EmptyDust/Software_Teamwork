@@ -1,6 +1,6 @@
 # Parser Runtime Service
 
-Parser 是内部文档解析运行时服务，由 Knowledge ingestion 调用，不通过
+Parser 是内部文档解析运行时服务，由 Knowledge ingestion 和 QA 会话附件解析调用，不通过
 public gateway API 暴露给前端。
 
 ## 职责边界
@@ -16,8 +16,8 @@ Knowledge 仍然负责：
 - 切片、chunk 持久化、embedding 生成、Qdrant 写入和检索 hydrate。
 - 管理端 parser runtime configuration 的公开 gateway 契约。
 
-Parser 不保存知识库、文档、chunk、embedding、Qdrant point 或权限事实；也不得返回
-object key、bucket、内部 URL、签名 URL、provider body、API key、prompt 或完整调试日志。
+QA 负责会话附件元数据、解析状态、临时 chunk、附件 owner 授权和 TTL 清理。Parser
+不保存知识库、文档、QA 会话附件、chunk、embedding、Qdrant point、临时附件 chunk 或权限事实；也不得返回 object key、bucket、内部 URL、签名 URL、provider body、API key、prompt 或完整调试日志。
 
 ## 内部 API
 
@@ -30,11 +30,11 @@ POST /internal/v1/parsed-documents
 机器可读契约分为两份：
 
 - [`api/public.openapi.yaml`](api/public.openapi.yaml)：Parser 没有 Gateway 公开路径，前端、管理端和 MCP 调用方不得直连 Parser。
-- [`api/internal.openapi.yaml`](api/internal.openapi.yaml)：Parser 服务间内部契约，当前只供 Knowledge ingestion 调用。
+- [`api/internal.openapi.yaml`](api/internal.openapi.yaml)：Parser 服务间内部契约，当前供 Knowledge ingestion 和 QA 会话附件解析调用。
+- [`docs/permission-matrix.md`](docs/permission-matrix.md)：Parser 内部服务认证、调用方白名单和 owner service 授权责任。
 - [`docs/implementation.md`](docs/implementation.md)：当前实现状态、缺口、测试和最近检查记录。
 
-Knowledge 调用 Parser 时必须传递 `X-Request-Id`、`X-Caller-Service: knowledge`
-和必要的内部 service token。`X-User-Id` 只作为审计上下文，不作为 Parser 里的授权事实。
+Knowledge 调用 Parser 时必须传递 `X-Request-Id`、`X-Caller-Service: knowledge` 和必要的内部 service token。QA 会话附件解析调用必须传递 `X-Caller-Service: qa`。`X-User-Id` 只作为审计上下文，不作为 Parser 里的授权事实。
 
 ## 运行时方向
 

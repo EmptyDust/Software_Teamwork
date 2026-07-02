@@ -6,7 +6,7 @@
 
 ## 1. 文档定位
 
-本文档描述 `parser` 当前实现状态和后续实现约束。Parser 是内部文档解析运行时，只供 Knowledge ingestion 等后端服务调用，不通过 Gateway 公开给前端、管理端或 MCP 调用方。
+本文档描述 `parser` 当前实现状态和后续实现约束。Parser 是内部文档解析运行时，供 Knowledge ingestion、QA 会话附件解析等后端服务调用，不通过 Gateway 公开给前端、管理端或 MCP 调用方。
 
 权威来源：
 

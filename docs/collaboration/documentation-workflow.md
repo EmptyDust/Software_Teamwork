@@ -11,6 +11,7 @@
 | RESTful 路径、OpenAPI、统一响应、分页、错误、SSE、上传和 request id | `docs/architecture/frontend-backend-contract.md` | 只列本服务资源路径、业务语义、状态枚举和服务特有错误场景。 |
 | 分支、PR、提交、CI 和维护者设置 | `CONTRIBUTING.md`、`docs/collaboration/*.md` | 服务文档不得定义仓库级流程。需要补充时更新协作文档。 |
 | 机器可读 API 契约 | `docs/services/<service>/api/public.openapi.yaml` 和 `docs/services/<service>/api/internal.openapi.yaml` | Markdown 只解释业务语义，不替代 OpenAPI schema；服务级 `public` 中未进入 Gateway active paths 的内容必须标为 candidate/draft。 |
+| 服务权限矩阵 | `docs/services/<service>/docs/permission-matrix.md` | README、API 设计、runbook 和链路文档只链接权限矩阵，不重复维护角色能力表、权限字符串集合、owner 访问规则或 `401` / `403` 分支。 |
 | 服务内数据模型、业务流程 | `docs/services/<service>/README.md` 和 `docs/services/<service>/docs/data-models.md` 等细节文档 | 保留服务特有内容，避免复制跨服务规则。 |
 | 当前实现状态、代码与契约出入、临时后端、最近检查记录 | `docs/services/<service>/docs/implementation.md` | README 只链接 implementation 文档，不重复列实现缺口、代码状态或检查结论。 |
 

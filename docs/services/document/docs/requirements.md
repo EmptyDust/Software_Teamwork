@@ -928,7 +928,7 @@
 - 本模块不做用户登录、会话创建和权限系统。
 - 公开 HTTP API 由 gateway 完成 bearer token 认证，并向 `document` 服务传递用户上下文；前端、管理端、其他后端模块和 MCP 工具的 HTTP 请求都不得绕过 gateway 直连 `document`。
 - `Authorization: Bearer <accessToken>` 中的 access token 是 opaque token；`document` 不解析 JWT，不保存明文 token。
-- `document` 服务应使用 gateway 注入的 `X-User-Id`、`X-User-Roles`、`X-User-Permissions` 和 `X-Request-Id` 做审计、追踪和必要的服务边界校验。
+- `document` 服务的用户上下文、角色权限、owner 约束和管理权限口径见 [Document 权限矩阵](permission-matrix.md)。
 - `document` 只引用 AI Gateway profile、模型名和业务超时参数，不保存 provider `baseUrl` 或 `apiKey`。
 - MCP 工具不应暴露系统密钥。
 - MCP 工具不应返回 MinIO 内部敏感地址、file 内部 ID 或内部 URL。

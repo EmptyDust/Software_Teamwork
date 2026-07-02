@@ -23,6 +23,7 @@ RESTful 路径、统一响应和错误 envelope 以 [前后端集成契约](../.
 | [Auth Internal OpenAPI](api/internal.openapi.yaml) | Auth 内部服务 API 草案。 |
 | [Auth Public OpenAPI](api/public.openapi.yaml) | 显式声明无前端直连公开 API。 |
 | [Auth 数据模型](docs/data-models.md) | 用户、凭证、角色权限、会话、撤销和审计逻辑模型。 |
+| [Auth 权限矩阵](docs/permission-matrix.md) | 角色、权限字符串、内部 API 授权和会话权限刷新口径。 |
 | [Auth 实现说明](docs/implementation.md) | 当前代码实现、契约对齐、缺口和最近检查记录。 |
 
 ## 与 Gateway 契约一致性
@@ -56,20 +57,7 @@ gateway user/session resources
 auth service /internal/v1/**
 ```
 
-前端只能调用 gateway 的 `/api/v1/**`，不得直接调用 auth 内部地址。Gateway 将用户创建和会话创建请求转发给 auth；auth 返回用户身份和会话身份后，gateway 将会话身份写入 Redis。后续业务请求由 gateway 基于 Redis 会话缓存读取身份，并向下游服务注入用户上下文。
-
-Gateway 调用下游服务时应传递：
-
-| Header | 说明 |
-| --- | --- |
-| `X-Request-Id` | 贯穿一次前端请求的 request id。 |
-| `X-User-Id` | 已认证用户 ID。 |
-| `X-User-Roles` | 逗号分隔的角色列表。 |
-| `X-User-Permissions` | 逗号分隔的权限列表。 |
-| `X-Forwarded-For` | 原始客户端地址链。 |
-| `X-Forwarded-Proto` | 原始协议。 |
-
-前端不得设置 `X-User-Id`、`X-User-Roles`、`X-User-Permissions`；这些字段只能由 gateway 在认证后注入。
+前端只能调用 gateway 的 `/api/v1/**`，不得直接调用 auth 内部地址。Gateway 将用户创建和会话创建请求转发给 auth；auth 返回用户身份和会话身份后，gateway 将会话身份写入 Redis。后续业务请求由 gateway 基于 Redis 会话缓存读取身份，并向下游服务注入用户上下文。Auth 的角色、权限字符串、内部 API 授权和会话权限刷新口径统一维护在 [Auth 权限矩阵](docs/permission-matrix.md)。
 
 ## 技术选型落地约束
 
@@ -194,8 +182,8 @@ X-Request-Id: req_123
     "user": {
       "id": "usr_123",
       "username": "alice",
-      "roles": ["admin"],
-      "permissions": ["knowledge:read", "document:upload"]
+      "roles": ["<role-code>"],
+      "permissions": ["<domain>:<action>"]
     },
     "session": {
       "sessionId": "sess_123",
@@ -229,30 +217,7 @@ X-Request-Id: req_123
 
 ## 权限与上下文输出
 
-Auth 服务需要为 gateway 提供足够的信息，用于构造下游服务认证上下文：
-
-| 输出 | 来源 | 用途 |
-| --- | --- | --- |
-| `user.id` | 用户身份记录 | 写入 `X-User-Id`。 |
-| `user.roles` | 用户角色关系 | 写入 `X-User-Roles`，也可用于 gateway 粗粒度路由保护。 |
-| `user.permissions` | 角色权限映射或用户权限策略 | 写入 `X-User-Permissions`。 |
-
-下游服务仍需在自己的服务边界做权限校验，不能只依赖前端传参。Gateway 可以做认证和基础路由保护，但不应持久化用户、角色或权限源数据。
-
-权限字符串命名建议使用 `<domain>:<action>`：
-
-```text
-knowledge:read
-knowledge:write
-document:upload
-report:read
-report:write
-qa:settings:read
-qa:settings:write
-admin:model-profile:write
-```
-
-最终权限字符串必须由 auth 实现契约确定，并同步影响下游服务文档。
+Auth 服务需要为 gateway 提供足够的信息，用于构造下游服务认证上下文；具体输出字段、角色权限矩阵、权限字符串和会话权限刷新规则统一维护在 [Auth 权限矩阵](docs/permission-matrix.md)。逻辑数据模型字段仍见 [Auth 数据模型](docs/data-models.md)。
 
 ## 错误码约定
 

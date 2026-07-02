@@ -12,7 +12,7 @@ info:
 x-api-scope: gateway-public
 x-owner-service: parser
 x-public-api-status: none
-x-no-public-paths-reason: Parser is an internal document parsing runtime used by Knowledge ingestion only.
+x-no-public-paths-reason: Parser is an internal document parsing runtime used by Knowledge ingestion and QA session attachment parsing only.
 servers:
   - url: /api/v1
 paths: {}

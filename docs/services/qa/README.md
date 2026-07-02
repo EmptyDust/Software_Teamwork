@@ -6,6 +6,7 @@
 - [`技术选型基线`](../../architecture/technology-decisions.md)：`pgx` + `sqlc`、`goose`、`net/http` / `ServeMux`、`slog`、opaque Bearer token、`fetch` stream SSE、MCP SDK/sidecar 等实现约束。
 - [`Gateway 服务规划`](../gateway/README.md)、[`前后端集成契约`](../../architecture/frontend-backend-contract.md)、[`服务边界矩阵`](../../architecture/service-boundaries.md) 和 [`Gateway OpenAPI 契约`](../gateway/api/public.openapi.yaml)。
 - [`QA 数据模型文档`](docs/data-models.md)：`qa_config_versions`、`llm_config_versions`、`conversations`、`messages`、`response_runs`、`agent_model_invocations`、`agent_tool_calls`、`message_content_blocks`、`response_process_steps`、`response_stream_events`、`citations`、`retrieval_test_runs`、`retrieval_test_results`、`llm_connection_tests`、`admin_audit_logs`。
+- [`QA 权限矩阵`](docs/permission-matrix.md)：QA 会话、消息、回答运行、引用、配置、检索测试、指标和工具调用的权限边界。
 - [`QA 实现说明`](docs/implementation.md)：当前代码实现、契约对齐、缺口和最近检查记录。
 - GitHub Discussion #65《请问能否重构AI问答模块接口契约？》。
 
@@ -84,18 +85,7 @@ qa service
    +--> MCP Client for tools/list and tools/call
 ```
 
-Gateway 调用 QA 服务时应传递：
-
-| Header | 说明 |
-| --- | --- |
-| `X-Request-Id` | 贯穿一次前端请求的 request id。 |
-| `X-User-Id` | 已认证用户 ID；映射到 QA 数据库中的 `external_user_id`。 |
-| `X-User-Roles` | 逗号分隔的角色列表。 |
-| `X-User-Permissions` | 逗号分隔的权限列表。 |
-| `X-Forwarded-For` | 原始客户端地址链。 |
-| `X-Forwarded-Proto` | 原始协议。 |
-
-前端不得设置 `X-User-Id`、`X-User-Roles`、`X-User-Permissions`。QA 服务必须在自己的边界校验用户上下文和权限，不依赖前端传入身份字段。
+QA 的认证上下文、owner 约束、settings 管理权限、工具权限裁剪和拒绝规则统一维护在 [QA 权限矩阵](docs/permission-matrix.md)。README 不重复维护 header 表或 owner 权限语义。
 
 ## 技术落地基线
 
@@ -156,11 +146,7 @@ JSON 成功、分页和错误响应遵循 [前后端集成契约](../../architec
 | `50200` | `dependency_error` | `502` | 知识检索或重排序依赖失败。 |
 | `50300` | `dependency_error` | `502` | 文档处理或知识服务依赖失败。 |
 
-Owner 权限语义：
-
-- 会话详情、会话更新、会话删除、会话消息列表和消息创建只允许当前用户访问。目标会话存在且属于其他用户时返回 `403 forbidden`；会话不存在或已软删除时返回 `404 not_found`。
-- message、response run、citation 子资源始终带当前用户 owner 过滤。不存在或不属于当前用户时返回 `404 not_found`，不通过单资源响应泄露其他用户数据；批量 citation lookup 只返回当前用户可见的记录，不披露被省略 ID 的存在性。
-- 当前未实现管理员跨用户访问能力；即使调用方带管理员角色，也不能绕过 QA owner 检查。
+Owner 权限语义、管理员跨用户访问限制和 `401` / `403` 拒绝规则见 [QA 权限矩阵](docs/permission-matrix.md)。
 
 ## 公开资源范围
 

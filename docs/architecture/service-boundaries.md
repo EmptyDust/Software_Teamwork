@@ -30,7 +30,7 @@
 | 原始文档内容 | 路由并执行认证上下文约束。 | `knowledge` | Knowledge 拥有 `documents/{documentId}/content` 资源和业务可见性；底层 bytes 可通过内部 file API 读取。 |
 | 前端知识查询 | 公开入口和响应归一化。 | `knowledge` | 已生效的 gateway 契约。查询执行建模为 `knowledge-queries`，不使用动作式 search 路径。检索和 rerank 业务规则留在 knowledge；模型 rerank 调用可经过 AI Gateway。 |
 | QA Agent 答案生成 | 公开入口、SSE 转发、认证上下文透传和响应归一化。 | `qa` | 已生效的 gateway 契约。QA 负责会话/消息/引用状态，运行 ReAct 循环，调用 AI Gateway 获取 OpenAI 兼容的 Function Calling 传输，并调用 MCP Client 使用已批准工具。公开工具调用字段仅为脱敏后的摘要。 |
-| QA 会话附件上传与解析 | 公开文件上传入口、owner 授权和响应归一化。 | `qa` | QA 拥有会话附件元数据、解析状态、临时 chunk 和 Agent 检索入口。QA 内部调用 file 保存原始 bytes（file 拥有原始对象），内部调用 parser 做 OCR/文档解析（parser 仅解析、不持久化业务状态）。会话临时附件不写入 knowledge 的长期知识库或向量索引。非归属会话返回 not_found，公开响应不暴露 `file_ref`、object key、bucket 或内部 URL。 |
+| QA 会话附件上传与解析 | 公开文件上传入口、owner 授权和响应归一化。 | `qa` | QA 拥有会话附件元数据、解析状态、临时 chunk 和 Agent 检索入口。QA 内部调用 file 保存原始 bytes（file 拥有原始对象），内部调用 parser 做 OCR/文档解析（parser 仅解析、不持久化业务状态）。会话临时附件不写入 knowledge 的长期知识库或向量索引；访问控制与隐藏策略见 [QA 权限矩阵](../services/qa/docs/permission-matrix.md)。公开响应不暴露 `file_ref`、object key、bucket 或内部 URL。 |
 | 引用来源查询 | 公开入口和响应归一化。 | `qa` | 已保存引用快照的已生效 gateway 契约。来源知识分块和原始文档内容仍以 knowledge/file 为权威。 |
 | 报告模板管理 | 公开入口和认证上下文透传。 | `document` | Document 服务负责模板元数据、模板结构和模板文件引用。 |
 | 报告材料管理 | 公开入口和认证上下文透传。 | `document` | Document 服务负责报告任务使用的材料元数据和材料文件引用；原始文件对象存储应复用 file 服务，而不是把材料当作知识库文档处理。 |

@@ -26,25 +26,33 @@
 | [系统链路条件覆盖文档](architecture/system-link-condition-coverage.md) | 按主要用户、管理员和系统后台链路记录跨服务参与方、正常路径、条件分支、状态输出和当前实现缺口。 |
 | [技术选型基线](architecture/technology-decisions.md) | 后端数据库访问、迁移、日志、HTTP、配置、队列、认证、前端 API client、测试、CI、观测和 DOCX/MCP 等工程技术选型。 |
 | [Gateway 服务规划](services/gateway/README.md) | Gateway 的设计原则、公开 API、认证上下文、响应约定和后续扩展。 |
+| [Gateway 权限矩阵](services/gateway/docs/permission-matrix.md) | Gateway 公开入口、认证缓存、角色权限透传和 owner service 复核边界。 |
 | [Gateway 实现说明](services/gateway/docs/implementation.md) | `services/gateway/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [Auth 服务接口文档](services/auth/README.md) | 用户、会话、权限上下文和 auth 内部服务接口草案。 |
+| [Auth 权限矩阵](services/auth/docs/permission-matrix.md) | Auth 角色、权限字符串、内部 API 授权和会话权限刷新口径。 |
 | [Auth 实现说明](services/auth/docs/implementation.md) | `services/auth/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [File 服务接口文档](services/file/README.md) | 后端内部基础文件对象、元数据、原文件内容读取和 file 内部服务接口草案。 |
+| [File 权限矩阵](services/file/docs/permission-matrix.md) | File 内部服务认证、owner service 授权责任和公开资源复用边界。 |
 | [File 数据模型文档](services/file/docs/data-models.md) | File 模块基础文件对象元数据、对象存储引用、删除清理和服务间 `file_ref` 约束。 |
 | [File 实现说明](services/file/docs/implementation.md) | `services/file/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [Knowledge 服务接口文档](services/knowledge/README.md) | 知识库、文档处理状态、切片、向量索引和检索接口契约。 |
+| [Knowledge 权限矩阵](services/knowledge/docs/permission-matrix.md) | 知识库、文档、检索和 parser config 的角色/权限矩阵。 |
 | [Knowledge 数据模型文档](services/knowledge/docs/data-models.md) | Knowledge 模块知识库、文档、处理任务、切片、Qdrant payload 和运行时配置逻辑模型。 |
 | [Knowledge 实现说明](services/knowledge/docs/implementation.md) | `services/knowledge/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [Parser Runtime 服务文档](services/parser/README.md) | 内部文档解析运行时、Python/PaddleOCR 边界和 `/internal/v1/parsed-documents` 契约入口。 |
+| [Parser Runtime 权限矩阵](services/parser/docs/permission-matrix.md) | Parser 内部服务认证、调用方白名单和 Knowledge 授权责任。 |
 | [Parser Runtime 实现说明](services/parser/docs/implementation.md) | `services/parser/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [QA 服务接口文档](services/qa/README.md) | 智能问答 Agent Host、会话、消息、ReAct 循环、MCP 工具调用、SSE、引用、配置、检索测试和统计接口说明。 |
+| [QA 权限矩阵](services/qa/docs/permission-matrix.md) | QA 会话、消息、回答运行、引用、配置、检索测试、指标和工具调用的权限边界。 |
 | [QA 数据模型文档](services/qa/docs/data-models.md) | QA 模块逻辑数据模型、核心关系、写入流程、索引和安全约束。 |
 | [QA 实现说明](services/qa/docs/implementation.md) | `services/qa/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [AI Gateway 服务接口文档](services/ai-gateway/README.md) | 内部模型配置、OpenAI-compatible chat/function calling/embedding、rerank 和 provider 错误归一化接口草案。 |
+| [AI Gateway 权限矩阵](services/ai-gateway/docs/permission-matrix.md) | 管理端 model profile 权限、内部模型调用服务认证和 provider 凭据保护边界。 |
 | [AI Gateway 数据模型文档](services/ai-gateway/docs/data-models.md) | AI Gateway 模型 profile、provider 凭据、配置审计和脱敏调用日志数据模型。 |
 | [AI Gateway Provider Adapter 说明](services/ai-gateway/docs/provider-adapters.md) | Chat、embedding、rerank provider adapter 的 profile 解析、响应校验、脱敏和 usage aggregate 约束。 |
 | [AI Gateway 实现说明](services/ai-gateway/docs/implementation.md) | `services/ai-gateway/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
 | [Document 服务接口文档](services/document/README.md) | 报告模板、素材、报告记录、大纲、章节、生成任务、报告文件、配置、统计和 MCP 工具边界说明。 |
+| [Document 权限矩阵](services/document/docs/permission-matrix.md) | 报告模板、素材、报告、任务、文件、settings、统计和日志的权限矩阵。 |
 | [Document 数据模型文档](services/document/docs/data-models.md) | 报告生成逻辑数据模型、实体关系、字段约定和存储约束。 |
 | [Document 生成工作流](services/document/docs/generation-workflow.md) | 报告 job、attempt、event、worker、AI Gateway、File Service 和 DOCX 创建的目标流程与当前缺口。 |
 | [Document 实现说明](services/document/docs/implementation.md) | `services/document/` 当前实现状态、契约对齐、缺口和最近检查记录。 |
@@ -53,7 +61,7 @@
 | [Gateway Active API Owner Map](services/gateway/docs/active-api-owner-map.md) | 从 Gateway OpenAPI 审计得到的 active API 清单、owner service、tag、operationId 和认证要求。 |
 | [AI Gateway OpenAPI 契约](services/ai-gateway/api/internal.openapi.yaml) | AI Gateway 内部服务机器可读契约；前端不得直接调用。 |
 | [Parser Runtime 公开契约](services/parser/api/public.openapi.yaml) | Parser 无 Gateway 公开 API 的机器可读声明。 |
-| [Parser Runtime 内部契约](services/parser/api/internal.openapi.yaml) | Parser 内部服务机器可读契约；只供 Knowledge ingestion 等后端服务调用。 |
+| [Parser Runtime 内部契约](services/parser/api/internal.openapi.yaml) | Parser 内部服务机器可读契约；供 Knowledge ingestion、QA 会话附件解析等后端服务调用。 |
 
 ## 运行与测试
 
