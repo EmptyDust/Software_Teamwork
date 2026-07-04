@@ -76,6 +76,9 @@ def test_build_report_counts_pdf_buckets_with_relative_files(tmp_path: Path, mon
     assert report["text_probe"][evaluator.BUCKET_GTE_1000] == 1
     assert report["runtime_parse"]["skipped_reason"] == "probe_only"
     assert [doc["file"] for doc in report["documents"]] == ["a.pdf", "nested/b.PDF"]
+    assert report["backend_selection"]["ocr_routed_document_count"] == 1
+    assert report["backend_selection"]["selected_backend_counts"]["PaddleOCR"] == 1
+    assert report["backend_selection"]["selected_backend_counts"]["DeepDOC"] == 1
 
 
 def test_main_writes_json_and_markdown_without_env_secret(tmp_path: Path, monkeypatch):

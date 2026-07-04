@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from rag.app.standard.pdf_quality_probe import QUALITY_GARBLED, QUALITY_OCR_REQUIRED, QUALITY_TEXT
+
 
 TOOL_VERSION = 1
 DEFAULT_MAX_PREVIEW_CHARS = 500
@@ -204,6 +206,12 @@ def summarize_text_probe(probes: list[PdfProbe]) -> dict[str, int]:
     return summary
 
 
+def selected_backend_for_probe(probe: PdfProbe, text_backend: str, ocr_backend: str) -> str:
+    if probe.is_garbled_candidate or probe.bucket in {BUCKET_ZERO_TEXT, BUCKET_LT_100}:
+        return ocr_backend
+    return text_backend
+
+
 def chunk_text(chunk: dict[str, Any]) -> str:
     value = chunk.get("content_with_weight")
     if value is None:
@@ -316,6 +324,18 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
     started_at = datetime.now().astimezone().isoformat(timespec="seconds")
     pdf_paths = find_pdfs(root)
     probes = [probe_pdf(path, root, max_preview_chars=max_preview_chars) for path in pdf_paths]
+    backend_counts = {"DeepDOC": 0, "PaddleOCR": 0}
+    quality_counts = {QUALITY_TEXT: 0, QUALITY_OCR_REQUIRED: 0, QUALITY_GARBLED: 0}
+    for probe in probes:
+        backend = selected_backend_for_probe(probe, text_backend="DeepDOC", ocr_backend="PaddleOCR")
+        backend_counts[backend] = backend_counts.get(backend, 0) + 1
+        if backend == "PaddleOCR":
+            if probe.is_garbled_candidate:
+                quality_counts[QUALITY_GARBLED] += 1
+            else:
+                quality_counts[QUALITY_OCR_REQUIRED] += 1
+        else:
+            quality_counts[QUALITY_TEXT] += 1
 
     if mode == "current":
         runtime_parse, chunks_summary, parser_samples = run_current_parser_sample(pdf_paths, root, parse_sample, layout_recognize, max_preview_chars)
@@ -355,6 +375,14 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
         },
         "text_probe": summarize_text_probe(probes),
         "runtime_parse": runtime_parse,
+        "backend_selection": {
+            "auto_ocr_enabled": True,
+            "text_backend": "DeepDOC",
+            "ocr_backend": "PaddleOCR",
+            "selected_backend_counts": backend_counts,
+            "ocr_routed_document_count": backend_counts.get("PaddleOCR", 0),
+            "quality_counts": quality_counts,
+        },
         "chunks": chunks_summary,
         "samples": probe_samples + parser_samples,
         "documents": [asdict(probe) | {"garbled_candidate": probe.is_garbled_candidate} for probe in probes],

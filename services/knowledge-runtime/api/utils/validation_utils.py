@@ -403,6 +403,18 @@ class AutoMetadataConfig(Base):
     built_in_metadata: Annotated[list[AutoMetadataField], Field(default_factory=list)]
 
 
+class StandardDocumentConfig(Base):
+    """Opt-in parser controls for standards-oriented PDF ingestion."""
+
+    enabled: Annotated[bool, Field(default=False)]
+    auto_ocr: Annotated[bool, Field(default=True)]
+    text_backend: Annotated[str, Field(default="DeepDOC", min_length=1, max_length=255)]
+    ocr_backend: Annotated[str, Field(default="PaddleOCR", min_length=1, max_length=255)]
+    cleanup: Annotated[bool, Field(default=True)]
+    clause_chunking: Annotated[bool, Field(default=True)]
+    extract_tables: Annotated[bool, Field(default=True)]
+
+
 TableColumnRole = Literal["indexing", "metadata", "both"]
 
 
@@ -424,6 +436,7 @@ class ParserConfig(Base):
     task_page_size: Annotated[int | None, Field(default=None, ge=1)]
     pages: Annotated[list[list[int]] | None, Field(default=None)]
     ext: Annotated[dict, Field(default={})]
+    standard_document: Annotated[StandardDocumentConfig, Field(default_factory=StandardDocumentConfig)]
     # Table parser: column name -> "indexing" | "metadata" | "both". Absence => all columns "both".
     # Table parser: "auto" = all columns both (default), "manual" = use table_column_roles. None → treated as "auto".
     table_column_mode: Annotated[Literal["auto", "manual"] | None, Field(default=None)]

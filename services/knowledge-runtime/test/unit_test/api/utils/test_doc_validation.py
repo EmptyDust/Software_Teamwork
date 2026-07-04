@@ -415,3 +415,20 @@ def test_parser_config_normalizes_legacy_vectorize_table_column_role():
         "country": "metadata",
         "x": "both",
     }
+
+
+def test_parser_config_accepts_standard_document_auto_mode():
+    p = ParserConfig(
+        layout_recognize="Auto",
+        standard_document={
+            "enabled": True,
+            "auto_ocr": True,
+            "text_backend": "DeepDOC",
+            "ocr_backend": "PaddleOCR",
+        },
+    )
+    assert p.layout_recognize == "Auto"
+    assert p.standard_document.enabled is True
+    assert p.standard_document.auto_ocr is True
+    assert p.standard_document.text_backend == "DeepDOC"
+    assert p.standard_document.ocr_backend == "PaddleOCR"

@@ -48,6 +48,7 @@ from deepdoc.parser.tcadp_parser import TCADPParser
 from common.float_utils import normalize_overlapped_percent
 from common.parser_config_utils import normalize_layout_recognizer
 from common.text_utils import normalize_arabic_presentation_forms
+from rag.app.standard.routing import select_standard_pdf_backend
 from rag.nlp import (
     concat_img,
     find_codec,
@@ -304,6 +305,19 @@ def by_paddleocr(
     if callback:
         callback(-1, "PaddleOCR not found.")
     return None, None, None
+
+
+def _select_standard_pdf_backend(filename, binary, parser_config, scope_id, callback):
+    return select_standard_pdf_backend(
+        filename=filename,
+        binary=binary,
+        parser_config=parser_config,
+        scope_id=scope_id,
+        callback=callback,
+        first_model_resolver=get_first_provider_model_name,
+        env_model_resolver=ensure_paddleocr_from_env,
+        ocr_model_type=LLMType.OCR,
+    )
 
 
 def by_plaintext(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, callback=None, **kwargs):
@@ -933,7 +947,16 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
         return res
 
     elif re.search(r"\.pdf$", filename, re.IGNORECASE):
-        layout_recognizer, parser_model_name = normalize_layout_recognizer(parser_config.get("layout_recognize", "DeepDOC"))
+        selected_layout_recognizer, selected_model_name, _standard_probe = _select_standard_pdf_backend(
+            filename=filename,
+            binary=binary,
+            parser_config=parser_config,
+            scope_id=kwargs.get("scope_id"),
+            callback=callback,
+        )
+        layout_recognizer, parser_model_name = normalize_layout_recognizer(selected_layout_recognizer)
+        if selected_model_name and layout_recognizer == "PaddleOCR":
+            parser_model_name = selected_model_name
         opendataloader_llm_name = kwargs.pop("opendataloader_llm_name", None)
         if layout_recognizer == "OpenDataLoader" and parser_model_name:
             opendataloader_llm_name = parser_model_name
