@@ -219,6 +219,51 @@ def chunk_text(chunk: dict[str, Any]) -> str:
     return str(value or "")
 
 
+def summarize_clause_chunks(chunks: list[dict[str, Any]]) -> dict[str, Any]:
+    clause_chunks = [chunk for chunk in chunks if chunk.get("doc_type_kwd") == "clause"]
+    path_chunks = [chunk for chunk in clause_chunks if chunk.get("section_path_kwd")]
+    clause_no_chunks = [chunk for chunk in clause_chunks if chunk.get("clause_no_kwd")]
+    cleaned_chunks = [chunk for chunk in clause_chunks if "@@" not in chunk_text(chunk)]
+    total = len(clause_chunks)
+    return {
+        "clause_chunks": total,
+        "with_section_path": len(path_chunks),
+        "with_clause_no": len(clause_no_chunks),
+        "clean_public_content": len(cleaned_chunks),
+        "section_path_coverage": round(len(path_chunks) / total, 4) if total else 0,
+        "clean_public_content_coverage": round(len(cleaned_chunks) / total, 4) if total else 0,
+    }
+
+
+def load_standard_clause_chunk_builder():
+    from rag.app.standard.chunks import build_standard_clause_chunks
+
+    return build_standard_clause_chunks
+
+
+def lightweight_tokenize_chunk(chunk: dict[str, Any], text: str, _eng: bool) -> None:
+    chunk["content_with_weight"] = text
+    chunk["content_ltks"] = ""
+    chunk["content_sm_ltks"] = ""
+
+
+def lightweight_add_positions(chunk: dict[str, Any], positions: list[list[float]]) -> None:
+    if not positions:
+        return
+    chunk["page_num_int"] = [int(position[0]) + 1 for position in positions]
+    chunk["position_int"] = [
+        (
+            int(position[0]) + 1,
+            int(position[1]),
+            int(position[2]),
+            int(position[3]),
+            int(position[4]),
+        )
+        for position in positions
+    ]
+    chunk["top_int"] = [int(position[3]) for position in positions]
+
+
 def empty_runtime_parse(mode: str, configured_backend: str, skipped_reason: str) -> dict[str, Any]:
     return {
         "mode": mode,
@@ -240,6 +285,12 @@ def run_current_parser_sample(pdf_paths: list[Path], root: Path, sample_size: in
         "avg_chars": 0,
         "median_chars": 0,
         "table_chunks": 0,
+        "clause_chunks": 0,
+        "clause_chunks_with_section_path": 0,
+        "clause_chunks_with_clause_no": 0,
+        "clean_public_content_chunks": 0,
+        "section_path_coverage": 0,
+        "clean_public_content_coverage": 0,
     }
     samples: list[dict[str, Any]] = []
 
@@ -280,6 +331,9 @@ def run_current_parser_sample(pdf_paths: list[Path], root: Path, sample_size: in
             doc_result["chunk_count"] = len(chunks)
             doc_result["empty_chunks"] = sum(1 for chunk in chunks if not chunk_text(chunk).strip())
             doc_result["table_chunks"] = sum(1 for chunk in chunks if str(chunk.get("doc_type_kwd") or "").lower() == "table")
+            clause_summary = summarize_clause_chunks(chunks)
+            doc_result["clause_chunks"] = clause_summary["clause_chunks"]
+            doc_result["clause_chunks_with_section_path"] = clause_summary["with_section_path"]
             if chunks and doc_result["empty_chunks"] < len(chunks):
                 doc_result["status"] = "ready"
                 runtime_parse["ready"] += 1
@@ -307,11 +361,90 @@ def run_current_parser_sample(pdf_paths: list[Path], root: Path, sample_size: in
     chunks_summary["total"] = sum(doc["chunk_count"] for doc in runtime_parse["documents"])
     chunks_summary["empty"] = sum(doc["empty_chunks"] for doc in runtime_parse["documents"])
     chunks_summary["table_chunks"] = sum(doc["table_chunks"] for doc in runtime_parse["documents"])
+    chunks_summary["clause_chunks"] = sum(doc.get("clause_chunks", 0) for doc in runtime_parse["documents"])
+    chunks_summary["clause_chunks_with_section_path"] = sum(doc.get("clause_chunks_with_section_path", 0) for doc in runtime_parse["documents"])
+    if chunks_summary["clause_chunks"]:
+        chunks_summary["section_path_coverage"] = round(chunks_summary["clause_chunks_with_section_path"] / chunks_summary["clause_chunks"], 4)
     if lengths:
         chunks_summary["avg_chars"] = round(sum(lengths) / len(lengths), 2)
         chunks_summary["median_chars"] = statistics.median(lengths)
 
     return runtime_parse, chunks_summary, samples
+
+
+def run_clause_chunk_sample(pdf_paths: list[Path], root: Path, sample_size: int, max_preview_chars: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    summary = {
+        "attempted": 0,
+        "ready": 0,
+        "failed": 0,
+        "total_clause_chunks": 0,
+        "with_section_path": 0,
+        "with_clause_no": 0,
+        "clean_public_content": 0,
+        "section_path_coverage": 0,
+        "clean_public_content_coverage": 0,
+        "documents": [],
+    }
+    samples: list[dict[str, Any]] = []
+    if sample_size <= 0:
+        return summary, samples
+
+    try:
+        from pypdf import PdfReader
+        build_standard_clause_chunks = load_standard_clause_chunk_builder()
+    except Exception as exc:  # noqa: BLE001 - keep the evaluator usable without optional PDF deps.
+        summary["skipped_reason"] = f"clause_sample_import_failed: {type(exc).__name__}: {exc}"
+        return summary, samples
+
+    selected = pdf_paths[:sample_size]
+    summary["attempted"] = len(selected)
+    for path in selected:
+        rel_path = relative_pdf_path(path, root)
+        doc_result = {"file": rel_path, "status": "failed", "clause_chunks": 0, "with_section_path": 0, "error": None}
+        try:
+            reader = PdfReader(str(path))
+            sections = [(page.extract_text() or "", "") for page in reader.pages]
+            chunks = build_standard_clause_chunks(
+                sections,
+                {"docnm_kwd": path.name},
+                path.name,
+                eng=True,
+                tokenize_fn=lightweight_tokenize_chunk,
+                positions_fn=lightweight_add_positions,
+            )
+            clause_summary = summarize_clause_chunks(chunks)
+            doc_result["clause_chunks"] = clause_summary["clause_chunks"]
+            doc_result["with_section_path"] = clause_summary["with_section_path"]
+            doc_result["status"] = "ready" if chunks else "empty"
+            if chunks:
+                summary["ready"] += 1
+            summary["total_clause_chunks"] += clause_summary["clause_chunks"]
+            summary["with_section_path"] += clause_summary["with_section_path"]
+            summary["with_clause_no"] += clause_summary["with_clause_no"]
+            summary["clean_public_content"] += clause_summary["clean_public_content"]
+            for chunk in chunks:
+                if len(samples) >= 5:
+                    break
+                text = chunk_text(chunk)
+                if text.strip():
+                    samples.append(
+                        {
+                            "file": rel_path,
+                            "page": (chunk.get("page_num_int") or [None])[0],
+                            "kind": "standard_clause_chunk",
+                            "section_path": chunk.get("section_path_kwd"),
+                            "text_preview": preview_text(text, max_preview_chars),
+                        }
+                    )
+        except Exception as exc:  # noqa: BLE001 - record per-document parser failures.
+            doc_result["error"] = f"{type(exc).__name__}: {exc}"
+            summary["failed"] += 1
+        summary["documents"].append(doc_result)
+
+    if summary["total_clause_chunks"]:
+        summary["section_path_coverage"] = round(summary["with_section_path"] / summary["total_clause_chunks"], 4)
+        summary["clean_public_content_coverage"] = round(summary["clean_public_content"] / summary["total_clause_chunks"], 4)
+    return summary, samples
 
 
 def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize: str, max_preview_chars: int) -> dict[str, Any]:
@@ -347,8 +480,23 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
             "avg_chars": 0,
             "median_chars": 0,
             "table_chunks": 0,
+            "clause_chunks": 0,
+            "clause_chunks_with_section_path": 0,
+            "clause_chunks_with_clause_no": 0,
+            "clean_public_content_chunks": 0,
+            "section_path_coverage": 0,
+            "clean_public_content_coverage": 0,
         }
         parser_samples = []
+
+    clause_sample, clause_samples = run_clause_chunk_sample(pdf_paths, root, parse_sample, max_preview_chars)
+    if clause_sample["total_clause_chunks"]:
+        chunks_summary["clause_chunks"] = clause_sample["total_clause_chunks"]
+        chunks_summary["clause_chunks_with_section_path"] = clause_sample["with_section_path"]
+        chunks_summary["clause_chunks_with_clause_no"] = clause_sample["with_clause_no"]
+        chunks_summary["clean_public_content_chunks"] = clause_sample["clean_public_content"]
+        chunks_summary["section_path_coverage"] = clause_sample["section_path_coverage"]
+        chunks_summary["clean_public_content_coverage"] = clause_sample["clean_public_content_coverage"]
 
     probe_samples = [
         {
@@ -383,8 +531,9 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
             "ocr_routed_document_count": backend_counts.get("PaddleOCR", 0),
             "quality_counts": quality_counts,
         },
+        "standard_clause_chunking": clause_sample,
         "chunks": chunks_summary,
-        "samples": probe_samples + parser_samples,
+        "samples": probe_samples + parser_samples + clause_samples,
         "documents": [asdict(probe) | {"garbled_candidate": probe.is_garbled_candidate} for probe in probes],
     }
 
@@ -441,6 +590,20 @@ def render_summary(report: dict[str, Any]) -> str:
         f"- Average chars: {chunks.get('avg_chars', 0)}",
         f"- Median chars: {chunks.get('median_chars', 0)}",
         f"- Table chunks: {chunks.get('table_chunks', 0)}",
+        f"- Clause chunks: {chunks.get('clause_chunks', 0)}",
+        f"- Clause chunks with section path: {chunks.get('clause_chunks_with_section_path', 0)}",
+        f"- Clause chunks with clause no: {chunks.get('clause_chunks_with_clause_no', 0)}",
+        f"- Clean public content coverage: {chunks.get('clean_public_content_coverage', 0)}",
+        "",
+        "## Standard Clause Chunking",
+        "",
+        f"- Attempted: {report.get('standard_clause_chunking', {}).get('attempted', 0)}",
+        f"- Ready: {report.get('standard_clause_chunking', {}).get('ready', 0)}",
+        f"- Failed: {report.get('standard_clause_chunking', {}).get('failed', 0)}",
+        f"- Clause chunks: {report.get('standard_clause_chunking', {}).get('total_clause_chunks', 0)}",
+        f"- Section path coverage: {report.get('standard_clause_chunking', {}).get('section_path_coverage', 0)}",
+        f"- Clean public content coverage: {report.get('standard_clause_chunking', {}).get('clean_public_content_coverage', 0)}",
+        f"- Skipped reason: `{report.get('standard_clause_chunking', {}).get('skipped_reason')}`",
         "",
         "## Samples",
         "",

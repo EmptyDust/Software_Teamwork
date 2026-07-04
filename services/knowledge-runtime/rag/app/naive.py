@@ -49,6 +49,8 @@ from common.float_utils import normalize_overlapped_percent
 from common.parser_config_utils import normalize_layout_recognizer
 from common.text_utils import normalize_arabic_presentation_forms
 from rag.app.standard.routing import select_standard_pdf_backend
+from rag.app.standard.chunks import build_standard_clause_chunks
+from rag.app.standard.config import get_standard_document_config
 from rag.nlp import (
     concat_img,
     find_codec,
@@ -998,6 +1000,14 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
 
         res = tokenize_table(tables, doc, is_english)
         callback(0.8, "Finish parsing.")
+        standard_config = get_standard_document_config(parser_config)
+        if standard_config.enabled and standard_config.clause_chunking:
+            standard_chunks = build_standard_clause_chunks(sections, doc, filename, is_english)
+            if standard_chunks:
+                res.extend(standard_chunks)
+                res.extend(embed_res)
+                res.extend(url_res)
+                return res
 
     elif re.search(r"\.(csv|xlsx?)$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")
