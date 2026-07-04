@@ -112,6 +112,123 @@ go test ./...
 # plus an explicit PDF upload -> ready/chunks -> retrieval smoke against runtime
 ```
 
+### Knowledge Runtime Standard Corpus Evaluation
+
+#### 1. Scope / Trigger
+
+- Trigger: changing standard-document parsing, OCR routing, cleanup, clause
+  chunking, table extraction, runtime parser selection, or metadata propagation
+  for Knowledge runtime.
+- Applies to `services/knowledge-runtime/tools/evaluate_standard_corpus.py`,
+  standard-parser modules, and Trellis task artifacts that compare before/after
+  parsing quality.
+- The command evaluates local PDFs only. It must not call OCR providers, read
+  `.env.local`, or require runtime services unless an explicit parser sample is
+  requested.
+
+#### 2. Signatures
+
+Run from `services/knowledge-runtime`:
+
+```bash
+PYTHONPATH=. uv run --no-project --with pypdf python tools/evaluate_standard_corpus.py \
+  --input ../../res/知识库管理/标准文档 \
+  --output ../../.trellis/tasks/<task>/artifacts/baseline.json \
+  --summary ../../.trellis/tasks/<task>/artifacts/baseline.md \
+  --mode current
+```
+
+Optional current-parser sampling:
+
+```bash
+PYTHONPATH=. uv run --no-project --with pypdf python tools/evaluate_standard_corpus.py \
+  --input ../../res/知识库管理/标准文档 \
+  --output ../../.trellis/tasks/<task>/artifacts/baseline-plain-text-sample.json \
+  --summary ../../.trellis/tasks/<task>/artifacts/baseline-plain-text-sample.md \
+  --mode current \
+  --parse-sample 1 \
+  --layout-recognize "Plain Text"
+```
+
+#### 3. Contracts
+
+Inputs:
+
+- `--input`: local directory scanned recursively for `*.pdf`.
+- `--output`: machine-readable JSON path.
+- `--summary`: Markdown summary path.
+- `--mode`: `probe` or `current`.
+- `--parse-sample`: optional number of PDFs to run through the current parser.
+- `--layout-recognize`: parser backend label recorded and used for parser
+  sampling.
+
+Output JSON must include:
+
+- `run.input_dir`, `run.mode`, `run.started_at`, `run.tool_version`;
+- `corpus.pdf_count`, `corpus.total_pages`, `corpus.file_list_sha256`;
+- `text_probe.zero_text`, `lt_100_chars`, `chars_100_to_999`,
+  `gte_1000_chars`, `garbled_candidates`, `read_errors`;
+- `runtime_parse.attempted`, `ready`, `failed`, `empty_outputs`,
+  `configured_backend`, `skipped_reason`;
+- `chunks.total`, `empty`, `avg_chars`, `median_chars`, `table_chunks`;
+- per-document probe rows with relative file paths, page counts, sampled pages,
+  sampled chars, text bucket, and garbled-candidate marker.
+
+Security:
+
+- Do not read or print OCR tokens, provider API keys, database URLs, MinIO
+  credentials, or `.env.local`.
+- Do not commit source PDFs from `res/`.
+- Preview text must be short and UTF-8 safe. PDF text extraction can yield
+  invalid surrogate characters; sanitize previews before JSON/Markdown writes.
+
+#### 4. Validation & Error Matrix
+
+| Condition | Required handling |
+| --- | --- |
+| Input path is missing or not a directory | Fail with a clear local path error. |
+| A PDF cannot be read | Record a per-document `error`, increment `read_errors`, continue the corpus run. |
+| Extracted text contains invalid Unicode surrogates | Replace invalid characters in previews/errors before writing JSON/Markdown. |
+| Current parser import fails during `--parse-sample` | Keep probe metrics and set `runtime_parse.skipped_reason` to the import failure. |
+| A sampled parse fails for one PDF | Record that document as failed and continue remaining sampled files. |
+| `--parse-sample` is not set | Record `parse_sample_not_requested`; do not pretend runtime chunking was exercised. |
+
+#### 5. Good/Base/Bad Cases
+
+- Good: full local corpus probe records PDF/page counts, text buckets, garbled
+  candidates, and a small parser sample with chunk statistics.
+- Base: probe-only run records `parse_sample_not_requested` and is still a valid
+  baseline for OCR routing and text-layer quality.
+- Bad: claiming parser chunk quality from probe-only output, or treating
+  scanned/zero-text documents as successfully parsed without OCR.
+
+#### 6. Tests Required
+
+- Unit tests for page sampling, text bucket boundaries, garbled/CID detection,
+  invalid-surrogate sanitization, output schema, and secret non-leak behavior.
+- A local corpus run against `res/知识库管理/标准文档` when the directory is
+  available.
+- `git diff --check` for changed runtime tool/test files.
+
+#### 7. Wrong vs Correct
+
+Wrong:
+
+```bash
+python tools/evaluate_standard_corpus.py --input ../../res/知识库管理/标准文档
+# no explicit output paths, no JSON artifact, no skipped_reason for parser stats
+```
+
+Correct:
+
+```bash
+PYTHONPATH=. uv run --no-project --with pypdf python tools/evaluate_standard_corpus.py \
+  --input ../../res/知识库管理/标准文档 \
+  --output ../../.trellis/tasks/<task>/artifacts/baseline.json \
+  --summary ../../.trellis/tasks/<task>/artifacts/baseline.md \
+  --mode current
+```
+
 When lint tooling is introduced, CI should run the selected linter for each
 changed service.
 
