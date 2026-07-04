@@ -176,6 +176,10 @@ Output JSON must include:
   `total_clause_chunks`, `with_section_path`, `with_clause_no`,
   `clean_public_content`, `section_path_coverage`, and
   `clean_public_content_coverage`;
+- when `--parse-sample` is set, standard table evaluation fields:
+  `standard_table_extraction.attempted`, `ready`, `failed`,
+  `table_chunks`, `row_chunks`, `with_caption`, `with_context`,
+  `caption_coverage`, and `context_coverage`;
 - per-document probe rows with relative file paths, page counts, sampled pages,
   sampled chars, text bucket, and garbled-candidate marker.
 
@@ -186,7 +190,7 @@ Security:
 - Do not commit source PDFs from `res/`.
 - Preview text must be short and UTF-8 safe. PDF text extraction can yield
   invalid surrogate characters; sanitize previews before JSON/Markdown writes.
-- Clause chunk samples in the evaluator must not import the full indexing
+- Clause/table samples in the evaluator must not import the full indexing
   tokenizer stack. Use lightweight token/position fillers for evaluation-only
   chunk payloads; production chunking remains responsible for calling the
   runtime tokenizer and position writer.
@@ -203,6 +207,8 @@ Security:
 | `--parse-sample` is not set | Record `parse_sample_not_requested`; do not pretend runtime chunking was exercised. |
 | Clause sample builder import fails | Keep probe metrics and set `standard_clause_chunking.skipped_reason` to the import failure. |
 | Clause sample cannot chunk one PDF | Record that document as failed and continue remaining sampled files. |
+| Table sample builder import fails | Keep probe metrics and set `standard_table_extraction.skipped_reason` to the import failure. |
+| Table sample finds no tables in pypdf text | Record attempted documents as `empty`; do not treat this as parser-table extraction failure. |
 
 #### 5. Good/Base/Bad Cases
 
@@ -219,6 +225,9 @@ Security:
   invalid-surrogate sanitization, output schema, and secret non-leak behavior.
 - Unit tests for standard cleanup, full-width heading detection, clause metadata,
   public cleaned content, and evaluator clause coverage metrics.
+- Unit tests for standard table caption detection, DeepDOC-like table tuples,
+  markdown/html table sections, row-level quality gates, and evaluator table
+  coverage metrics.
 - A local corpus run against `res/知识库管理/标准文档` when the directory is
   available.
 - `git diff --check` for changed runtime tool/test files.

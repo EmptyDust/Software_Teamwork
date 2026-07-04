@@ -51,6 +51,7 @@ from common.text_utils import normalize_arabic_presentation_forms
 from rag.app.standard.routing import select_standard_pdf_backend
 from rag.app.standard.chunks import build_standard_clause_chunks
 from rag.app.standard.config import get_standard_document_config
+from rag.app.standard.tables import build_standard_table_chunks
 from rag.nlp import (
     concat_img,
     find_codec,
@@ -998,16 +999,23 @@ def chunk(filename, binary=None, from_page=0, to_page=MAXIMUM_PAGE_NUMBER, lang=
             if int(parser_config.get("chunk_token_num", 0)) <= 0:
                 parser_config["chunk_token_num"] = 0
 
+        standard_config = get_standard_document_config(parser_config)
+        if standard_config.enabled and (standard_config.clause_chunking or standard_config.extract_tables):
+            standard_chunks = []
+            if standard_config.extract_tables:
+                standard_chunks.extend(build_standard_table_chunks(sections, tables, doc, filename, is_english))
+            else:
+                standard_chunks.extend(tokenize_table(tables, doc, is_english))
+            if standard_config.clause_chunking:
+                standard_chunks.extend(build_standard_clause_chunks(sections, doc, filename, is_english))
+            if standard_chunks:
+                callback(0.8, "Finish parsing.")
+                standard_chunks.extend(embed_res)
+                standard_chunks.extend(url_res)
+                return standard_chunks
+
         res = tokenize_table(tables, doc, is_english)
         callback(0.8, "Finish parsing.")
-        standard_config = get_standard_document_config(parser_config)
-        if standard_config.enabled and standard_config.clause_chunking:
-            standard_chunks = build_standard_clause_chunks(sections, doc, filename, is_english)
-            if standard_chunks:
-                res.extend(standard_chunks)
-                res.extend(embed_res)
-                res.extend(url_res)
-                return res
 
     elif re.search(r"\.(csv|xlsx?)$", filename, re.IGNORECASE):
         callback(0.1, "Start to parse.")

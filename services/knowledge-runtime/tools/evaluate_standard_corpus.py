@@ -241,6 +241,12 @@ def load_standard_clause_chunk_builder():
     return build_standard_clause_chunks
 
 
+def load_standard_table_chunk_builder():
+    from rag.app.standard.tables import build_standard_table_chunks
+
+    return build_standard_table_chunks
+
+
 def lightweight_tokenize_chunk(chunk: dict[str, Any], text: str, _eng: bool) -> None:
     chunk["content_with_weight"] = text
     chunk["content_ltks"] = ""
@@ -285,6 +291,9 @@ def run_current_parser_sample(pdf_paths: list[Path], root: Path, sample_size: in
         "avg_chars": 0,
         "median_chars": 0,
         "table_chunks": 0,
+        "table_row_chunks": 0,
+        "table_caption_coverage": 0,
+        "table_context_coverage": 0,
         "clause_chunks": 0,
         "clause_chunks_with_section_path": 0,
         "clause_chunks_with_clause_no": 0,
@@ -447,6 +456,124 @@ def run_clause_chunk_sample(pdf_paths: list[Path], root: Path, sample_size: int,
     return summary, samples
 
 
+def summarize_table_chunks(chunks: list[dict[str, Any]]) -> dict[str, Any]:
+    table_chunks = [chunk for chunk in chunks if chunk.get("doc_type_kwd") == "table"]
+    row_chunks = [chunk for chunk in chunks if chunk.get("doc_type_kwd") == "table_row"]
+    with_caption = [chunk for chunk in table_chunks if chunk.get("table_no_kwd")]
+    with_context = [chunk for chunk in table_chunks if chunk.get("section_path_kwd")]
+    return {
+        "table_chunks": len(table_chunks),
+        "row_chunks": len(row_chunks),
+        "with_caption": len(with_caption),
+        "with_context": len(with_context),
+        "caption_coverage": round(len(with_caption) / len(table_chunks), 4) if table_chunks else 0,
+        "context_coverage": round(len(with_context) / len(table_chunks), 4) if table_chunks else 0,
+    }
+
+
+def extract_markdown_table_sections(text: str) -> list[str]:
+    lines = (text or "").splitlines()
+    sections: list[str] = []
+    current_caption = ""
+    index = 0
+    while index < len(lines):
+        line = lines[index].strip()
+        if line.lower().startswith("table ") or line.startswith("表"):
+            current_caption = line
+        if index + 1 < len(lines) and "|" in line and re.match(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$", lines[index + 1]):
+            end = index + 2
+            while end < len(lines) and "|" in lines[end] and lines[end].strip():
+                end += 1
+            section = "\n".join(([current_caption] if current_caption else []) + lines[index:end])
+            sections.append(section)
+            index = end
+            continue
+        index += 1
+    return sections
+
+
+def run_table_chunk_sample(pdf_paths: list[Path], root: Path, sample_size: int, max_preview_chars: int) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    summary = {
+        "attempted": 0,
+        "ready": 0,
+        "failed": 0,
+        "table_chunks": 0,
+        "row_chunks": 0,
+        "with_caption": 0,
+        "with_context": 0,
+        "caption_coverage": 0,
+        "context_coverage": 0,
+        "documents": [],
+    }
+    samples: list[dict[str, Any]] = []
+    if sample_size <= 0:
+        return summary, samples
+
+    try:
+        from pypdf import PdfReader
+        build_standard_table_chunks = load_standard_table_chunk_builder()
+    except Exception as exc:  # noqa: BLE001 - keep the evaluator usable without optional PDF deps.
+        summary["skipped_reason"] = f"table_sample_import_failed: {type(exc).__name__}: {exc}"
+        return summary, samples
+
+    selected = pdf_paths[:sample_size]
+    summary["attempted"] = len(selected)
+    for path in selected:
+        rel_path = relative_pdf_path(path, root)
+        doc_result = {"file": rel_path, "status": "failed", "table_chunks": 0, "row_chunks": 0, "with_caption": 0, "error": None}
+        try:
+            reader = PdfReader(str(path))
+            page_texts = [page.extract_text() or "" for page in reader.pages]
+            sections = [(text, "") for text in page_texts]
+            markdown_sections = []
+            for text in page_texts:
+                markdown_sections.extend(extract_markdown_table_sections(text))
+            sections.extend((text, "") for text in markdown_sections)
+            chunks = build_standard_table_chunks(
+                sections,
+                [],
+                {"docnm_kwd": path.name},
+                path.name,
+                eng=True,
+                tokenize_fn=lightweight_tokenize_chunk,
+                positions_fn=lightweight_add_positions,
+            )
+            table_summary = summarize_table_chunks(chunks)
+            doc_result["table_chunks"] = table_summary["table_chunks"]
+            doc_result["row_chunks"] = table_summary["row_chunks"]
+            doc_result["with_caption"] = table_summary["with_caption"]
+            doc_result["status"] = "ready" if table_summary["table_chunks"] else "empty"
+            if table_summary["table_chunks"]:
+                summary["ready"] += 1
+            summary["table_chunks"] += table_summary["table_chunks"]
+            summary["row_chunks"] += table_summary["row_chunks"]
+            summary["with_caption"] += table_summary["with_caption"]
+            summary["with_context"] += table_summary["with_context"]
+            for chunk in chunks:
+                if len(samples) >= 5:
+                    break
+                if chunk.get("doc_type_kwd") == "table":
+                    samples.append(
+                        {
+                            "file": rel_path,
+                            "page": (chunk.get("page_num_int") or [None])[0],
+                            "kind": "standard_table_chunk",
+                            "table_no": chunk.get("table_no_kwd"),
+                            "section_path": chunk.get("section_path_kwd"),
+                            "text_preview": preview_text(chunk_text(chunk), max_preview_chars),
+                        }
+                    )
+        except Exception as exc:  # noqa: BLE001 - record per-document parser failures.
+            doc_result["error"] = f"{type(exc).__name__}: {exc}"
+            summary["failed"] += 1
+        summary["documents"].append(doc_result)
+
+    if summary["table_chunks"]:
+        summary["caption_coverage"] = round(summary["with_caption"] / summary["table_chunks"], 4)
+        summary["context_coverage"] = round(summary["with_context"] / summary["table_chunks"], 4)
+    return summary, samples
+
+
 def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize: str, max_preview_chars: int) -> dict[str, Any]:
     root = input_dir.resolve()
     if not root.exists():
@@ -480,6 +607,9 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
             "avg_chars": 0,
             "median_chars": 0,
             "table_chunks": 0,
+            "table_row_chunks": 0,
+            "table_caption_coverage": 0,
+            "table_context_coverage": 0,
             "clause_chunks": 0,
             "clause_chunks_with_section_path": 0,
             "clause_chunks_with_clause_no": 0,
@@ -490,6 +620,7 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
         parser_samples = []
 
     clause_sample, clause_samples = run_clause_chunk_sample(pdf_paths, root, parse_sample, max_preview_chars)
+    table_sample, table_samples = run_table_chunk_sample(pdf_paths, root, parse_sample, max_preview_chars)
     if clause_sample["total_clause_chunks"]:
         chunks_summary["clause_chunks"] = clause_sample["total_clause_chunks"]
         chunks_summary["clause_chunks_with_section_path"] = clause_sample["with_section_path"]
@@ -497,6 +628,11 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
         chunks_summary["clean_public_content_chunks"] = clause_sample["clean_public_content"]
         chunks_summary["section_path_coverage"] = clause_sample["section_path_coverage"]
         chunks_summary["clean_public_content_coverage"] = clause_sample["clean_public_content_coverage"]
+    if table_sample["table_chunks"]:
+        chunks_summary["table_chunks"] = table_sample["table_chunks"]
+        chunks_summary["table_row_chunks"] = table_sample["row_chunks"]
+        chunks_summary["table_caption_coverage"] = table_sample["caption_coverage"]
+        chunks_summary["table_context_coverage"] = table_sample["context_coverage"]
 
     probe_samples = [
         {
@@ -532,8 +668,9 @@ def build_report(input_dir: Path, mode: str, parse_sample: int, layout_recognize
             "quality_counts": quality_counts,
         },
         "standard_clause_chunking": clause_sample,
+        "standard_table_extraction": table_sample,
         "chunks": chunks_summary,
-        "samples": probe_samples + parser_samples + clause_samples,
+        "samples": probe_samples + parser_samples + clause_samples + table_samples,
         "documents": [asdict(probe) | {"garbled_candidate": probe.is_garbled_candidate} for probe in probes],
     }
 
@@ -590,6 +727,9 @@ def render_summary(report: dict[str, Any]) -> str:
         f"- Average chars: {chunks.get('avg_chars', 0)}",
         f"- Median chars: {chunks.get('median_chars', 0)}",
         f"- Table chunks: {chunks.get('table_chunks', 0)}",
+        f"- Table row chunks: {chunks.get('table_row_chunks', 0)}",
+        f"- Table caption coverage: {chunks.get('table_caption_coverage', 0)}",
+        f"- Table context coverage: {chunks.get('table_context_coverage', 0)}",
         f"- Clause chunks: {chunks.get('clause_chunks', 0)}",
         f"- Clause chunks with section path: {chunks.get('clause_chunks_with_section_path', 0)}",
         f"- Clause chunks with clause no: {chunks.get('clause_chunks_with_clause_no', 0)}",
@@ -604,6 +744,17 @@ def render_summary(report: dict[str, Any]) -> str:
         f"- Section path coverage: {report.get('standard_clause_chunking', {}).get('section_path_coverage', 0)}",
         f"- Clean public content coverage: {report.get('standard_clause_chunking', {}).get('clean_public_content_coverage', 0)}",
         f"- Skipped reason: `{report.get('standard_clause_chunking', {}).get('skipped_reason')}`",
+        "",
+        "## Standard Table Extraction",
+        "",
+        f"- Attempted: {report.get('standard_table_extraction', {}).get('attempted', 0)}",
+        f"- Ready: {report.get('standard_table_extraction', {}).get('ready', 0)}",
+        f"- Failed: {report.get('standard_table_extraction', {}).get('failed', 0)}",
+        f"- Table chunks: {report.get('standard_table_extraction', {}).get('table_chunks', 0)}",
+        f"- Row chunks: {report.get('standard_table_extraction', {}).get('row_chunks', 0)}",
+        f"- Caption coverage: {report.get('standard_table_extraction', {}).get('caption_coverage', 0)}",
+        f"- Context coverage: {report.get('standard_table_extraction', {}).get('context_coverage', 0)}",
+        f"- Skipped reason: `{report.get('standard_table_extraction', {}).get('skipped_reason')}`",
         "",
         "## Samples",
         "",

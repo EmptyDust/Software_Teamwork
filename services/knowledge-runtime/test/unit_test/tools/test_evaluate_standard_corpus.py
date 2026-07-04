@@ -155,3 +155,50 @@ def test_report_records_clause_chunk_coverage_when_parse_sample_requested(tmp_pa
     assert report["chunks"]["clause_chunks"] == 2
     assert report["chunks"]["section_path_coverage"] == 1
     assert report["chunks"]["clean_public_content_coverage"] == 1
+
+
+def test_report_records_table_chunk_coverage_when_parse_sample_requested(tmp_path: Path, monkeypatch):
+    input_dir = tmp_path / "standards"
+    input_dir.mkdir()
+    pdf_path = input_dir / "a.pdf"
+    pdf_path.write_bytes(b"%PDF fake")
+
+    class FakePage:
+        def extract_text(self):
+            return "Table 1 Limits\n| Item | Limit |\n| --- | --- |\n| A | 1 |"
+
+    class FakeReader:
+        pages = [FakePage()]
+
+        def __init__(self, _path):
+            pass
+
+    def fake_probe(path: Path, root: Path, max_preview_chars: int = evaluator.DEFAULT_MAX_PREVIEW_CHARS) -> evaluator.PdfProbe:
+        rel = path.relative_to(root).as_posix()
+        return _probe(rel, 1200, pages=1, preview="Table 1 Limits")
+
+    def fake_build_standard_clause_chunks(_sections, _doc, _filename, eng, tokenize_fn=None, positions_fn=None):
+        return []
+
+    def fake_build_standard_table_chunks(_sections, _tables, _doc, _filename, eng, tokenize_fn=None, positions_fn=None):
+        assert eng is True
+        assert tokenize_fn is evaluator.lightweight_tokenize_chunk
+        assert positions_fn is evaluator.lightweight_add_positions
+        return [
+            {"doc_type_kwd": "table", "table_no_kwd": "Table 1", "section_path_kwd": "1 Scope", "content_with_weight": "| Item | Limit |"},
+            {"doc_type_kwd": "table_row", "row_index_int": 1, "columns_obj": {"Item": "A", "Limit": "1"}, "content_with_weight": "- Item: A"},
+        ]
+
+    monkeypatch.setattr(evaluator, "probe_pdf", fake_probe)
+    monkeypatch.setitem(__import__("sys").modules, "pypdf", type("FakePypdf", (), {"PdfReader": FakeReader}))
+    monkeypatch.setattr(evaluator, "load_standard_clause_chunk_builder", lambda: fake_build_standard_clause_chunks)
+    monkeypatch.setattr(evaluator, "load_standard_table_chunk_builder", lambda: fake_build_standard_table_chunks)
+
+    report = evaluator.build_report(input_dir, mode="probe", parse_sample=1, layout_recognize="DeepDOC", max_preview_chars=80)
+
+    assert report["standard_table_extraction"]["table_chunks"] == 1
+    assert report["standard_table_extraction"]["row_chunks"] == 1
+    assert report["chunks"]["table_chunks"] == 1
+    assert report["chunks"]["table_row_chunks"] == 1
+    assert report["chunks"]["table_caption_coverage"] == 1
+    assert report["chunks"]["table_context_coverage"] == 1
