@@ -142,7 +142,7 @@ def _map_doc(doc):
 
 
 def _strip_chunk_runtime_fields(chunk):
-    for name in [name for name in chunk.keys() if re.search(r"(_vec$|_sm_|_tks|_ltks)", name)]:
+    for name in [name for name in chunk.keys() if search.is_runtime_private_field(name)]:
         del chunk[name]
     return chunk
 
@@ -153,7 +153,7 @@ def _chunk_embedding_provider(document_id):
 
 
 def _list_chunk_fields():
-    return [
+    return search.with_standard_public_fields([
         "docnm_kwd",
         "content_ltks",
         "kb_id",
@@ -165,7 +165,10 @@ def _list_chunk_fields():
         "content_with_weight",
         "tag_kwd",
         "question_kwd",
-    ]
+        "metadata",
+        "meta",
+        "extra",
+    ])
 
 
 def _chunk_from_search_result(chunk_id, field, highlight, question, embedding_provider):
@@ -188,6 +191,11 @@ def _chunk_from_search_result(chunk_id, field, highlight, question, embedding_pr
         "positions": field.get("position_int", []),
         "embedding_provider": embedding_provider,
     }
+
+
+def _attach_standard_public_fields(source, target):
+    search.copy_standard_public_fields(source, target)
+    return target
 
 
 def _get_dataset_scope_id(dataset_id):
@@ -513,6 +521,7 @@ async def list_chunks(scope_id, dataset_id, document_id):
             "tag_feas": chunk.get("tag_feas", {}),
             "embedding_provider": _chunk_embedding_provider(document_id),
         }
+        _attach_standard_public_fields(chunk, final_chunk)
         res["chunks"].append(final_chunk)
         _ = Chunk(**final_chunk)
     elif settings.docStoreConn.index_exist(search.index_name(dataset_scope_id), dataset_id):
@@ -527,6 +536,7 @@ async def list_chunks(scope_id, dataset_id, document_id):
         embedding_provider = _chunk_embedding_provider(document_id)
         for chunk_id in sres.ids:
             d = _chunk_from_search_result(chunk_id, sres.field[chunk_id], sres.highlight, question, embedding_provider)
+            _attach_standard_public_fields(sres.field[chunk_id], d)
             res["chunks"].append(d)
             _ = Chunk(**d)
     return get_result(data=res)

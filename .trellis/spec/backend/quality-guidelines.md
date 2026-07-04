@@ -195,6 +195,29 @@ Security:
   chunk payloads; production chunking remains responsible for calling the
   runtime tokenizer and position writer.
 
+Standard metadata propagation:
+
+- Elasticsearch/OpenSearch retrieval and chunk-list default select fields must
+  include these public standard fields when standard parsing is enabled:
+  `doc_type_kwd`, `standard_no_kwd`, `standard_year_int`,
+  `section_path_kwd`, `clause_no_kwd`, `clause_title_tks`, `table_no_kwd`,
+  `table_title_tks`, `row_index_int`, and `columns_obj`.
+- Runtime response shaping may copy only those standard fields plus existing
+  public page/position/content fields. It must not copy vector fields,
+  provider raw responses, local paths, object keys, OCR debug blobs, or token
+  material.
+- Knowledge adapter maps public `sectionPath` from `section_path`,
+  `sectionPath`, `section_path_kwd`, or the same keys nested under
+  `metadata`/`meta`/`extra`. It maps `chunkType` from `chunk_type`,
+  `chunkType`, or `doc_type_kwd`.
+- `DocumentChunk.metadata` is a public whitelist for standard identifiers
+  (`standardNo`, `standardYear`, `clauseNo`, `clauseTitle`, `tableNo`,
+  `tableTitle`, `rowIndex`, `columns`) rather than a dump of unknown runtime
+  fields.
+- Infinity and OceanBase are best-effort for the MVP. Do not add the dynamic
+  standard suffix fields to their default select lists until those backends have
+  explicit storage/search support and regression tests.
+
 #### 4. Validation & Error Matrix
 
 | Condition | Required handling |
@@ -209,6 +232,8 @@ Security:
 | Clause sample cannot chunk one PDF | Record that document as failed and continue remaining sampled files. |
 | Table sample builder import fails | Keep probe metrics and set `standard_table_extraction.skipped_reason` to the import failure. |
 | Table sample finds no tables in pypdf text | Record attempted documents as `empty`; do not treat this as parser-table extraction failure. |
+| ES/OpenSearch retrieval omits `section_path_kwd` | Treat as a contract regression; query results and chunk-list responses cannot expose standard section paths. |
+| Infinity/OceanBase lacks dynamic standard fields | Leave standard fields out of default select lists and document the gap; do not claim standard metadata propagation is supported there. |
 
 #### 5. Good/Base/Bad Cases
 

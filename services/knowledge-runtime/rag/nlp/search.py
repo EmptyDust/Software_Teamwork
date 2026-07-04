@@ -35,6 +35,47 @@ from common.misc_utils import thread_pool_exec
 def index_name(_uid=None): return f"ragflow_{runtime_index_id()}"
 
 
+STANDARD_PUBLIC_FIELDS = (
+    "doc_type_kwd",
+    "standard_no_kwd",
+    "standard_year_int",
+    "section_path_kwd",
+    "clause_no_kwd",
+    "clause_title_tks",
+    "table_no_kwd",
+    "table_title_tks",
+    "row_index_int",
+    "columns_obj",
+)
+
+
+def standard_public_fields_supported():
+    return not (settings.DOC_ENGINE_INFINITY or settings.DOC_ENGINE_OCEANBASE)
+
+
+def with_standard_public_fields(fields, enabled=True):
+    out = list(fields or [])
+    if not enabled:
+        return out
+    seen = set(out)
+    for field in STANDARD_PUBLIC_FIELDS:
+        if field not in seen:
+            out.append(field)
+            seen.add(field)
+    return out
+
+
+def copy_standard_public_fields(source, target):
+    for field in STANDARD_PUBLIC_FIELDS:
+        value = source.get(field)
+        if value is not None:
+            target[field] = value
+
+
+def is_runtime_private_field(field_name):
+    return field_name not in STANDARD_PUBLIC_FIELDS and re.search(r"(_vec$|_sm_|_tks|_ltks)", field_name) is not None
+
+
 class Dealer:
     def __init__(self, dataStore: DocStoreConnection):
         self.qryr = query.FulltextQueryer()
@@ -150,8 +191,9 @@ class Dealer:
         src = req.get("fields",
                       ["docnm_kwd", "content_ltks", "kb_id", "img_id", "title_tks", "important_kwd", "position_int",
                        "doc_id", "chunk_order_int", "page_num_int", "top_int", "create_timestamp_flt", "knowledge_graph_kwd",
-                       "question_kwd", "question_tks", "doc_type_kwd",
+                       "question_kwd", "question_tks",
                        "available_int", "content_with_weight", "mom_id", PAGERANK_FLD, TAG_FLD, "row_id()"])
+        src = with_standard_public_fields(src, standard_public_fields_supported())
         kwds = set([])
 
         qst = req.get("question", "")
@@ -738,6 +780,7 @@ class Dealer:
                 "mom_id": chunk.get("mom_id", ""),
                 "row_id": chunk.get("row_id()"),
             }
+            copy_standard_public_fields(chunk, d)
             if highlight and sres.highlight:
                 if id in sres.highlight:
                     d["highlight"] = remove_redundant_spaces(sres.highlight[id])
@@ -778,7 +821,7 @@ class Dealer:
     def chunk_list(self, doc_id: str, scope_id: str,
                    kb_ids: list[str], max_count=1024,
                    offset=0,
-                   fields=["docnm_kwd", "content_with_weight", "img_id"],
+                   fields=None,
                    sort_by_position: bool = False,
                    retrieve_all: bool = False):
         """Return chunks for a document.
@@ -788,6 +831,9 @@ class Dealer:
         """
         condition = {"doc_id": doc_id}
 
+        if fields is None:
+            fields = ["docnm_kwd", "content_with_weight", "img_id"]
+        fields = with_standard_public_fields(fields, standard_public_fields_supported())
         fields_set = set(fields or [])
         if sort_by_position:
             for need in ("page_num_int", "position_int", "top_int"):
@@ -917,6 +963,7 @@ class Dealer:
                 "positions": chunk.get("position_int", []),
                 "doc_type_kwd": chunk.get("doc_type_kwd", "")
             }
+            copy_standard_public_fields(chunk, d)
             for k in chunk.keys():
                 if k[-4:] == "_vec":
                     d["vector"] = chunk[k]
@@ -972,6 +1019,7 @@ class Dealer:
                 "positions": chunk.get("position_int", []),
                 "doc_type_kwd": chunk.get("doc_type_kwd", "")
             }
+            copy_standard_public_fields(chunk, d)
             for k in cks[0].keys():
                 if k[-4:] == "_vec":
                     d["vector"] = cks[0][k]

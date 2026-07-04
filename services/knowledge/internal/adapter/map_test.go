@@ -572,6 +572,40 @@ func TestDocumentChunkFromVendorDoesNotLeakVectorMetadata(t *testing.T) {
 	}
 }
 
+func TestDocumentChunkFromVendorMapsStandardMetadataSafely(t *testing.T) {
+	chunk := documentChunkFromVendor(map[string]interface{}{
+		"id":                  "chunk_42",
+		"content_with_weight": "content",
+		"section_path_kwd":    "ASTM D445-2015 > 1 Scope",
+		"doc_type_kwd":        "clause",
+		"standard_no_kwd":     "ASTM D445-2015",
+		"clause_no_kwd":       "1.1",
+		"clause_title_tks":    "Scope",
+		"vector":              []float64{0.1, 0.2},
+		"object_key":          "private/runtime/key.pdf",
+		"provider_response":   map[string]any{"raw": true},
+		"access_token":        "secret-token",
+	}, "kb_1", "doc_1", 7)
+
+	if chunk.SectionPath == nil || *chunk.SectionPath != "ASTM D445-2015 > 1 Scope" {
+		t.Fatalf("SectionPath=%v", chunk.SectionPath)
+	}
+	if chunk.ChunkType == nil || *chunk.ChunkType != "clause" {
+		t.Fatalf("ChunkType=%v", chunk.ChunkType)
+	}
+	if chunk.Metadata["standardNo"] != "ASTM D445-2015" {
+		t.Fatalf("metadata=%v", chunk.Metadata)
+	}
+	if chunk.Metadata["clauseNo"] != "1.1" || chunk.Metadata["clauseTitle"] != "Scope" {
+		t.Fatalf("metadata=%v", chunk.Metadata)
+	}
+	for _, key := range []string{"vector", "object_key", "provider_response", "access_token", "section_path_kwd"} {
+		if _, ok := chunk.Metadata[key]; ok {
+			t.Fatalf("metadata leaked %q: %v", key, chunk.Metadata)
+		}
+	}
+}
+
 func TestKnowledgeQueryTraceUsesConfiguredRuntimeValues(t *testing.T) {
 	summary := knowledgeQueryFromVendor(
 		"kq_test",
@@ -606,6 +640,38 @@ func TestMapRetrievalChunkOmitsMissingChunkIndex(t *testing.T) {
 
 	if result.ChunkIndex != nil {
 		t.Fatalf("ChunkIndex=%v, want nil when vendor payload has no chunk index", *result.ChunkIndex)
+	}
+}
+
+func TestMapRetrievalChunkMapsStandardSectionPathAndType(t *testing.T) {
+	result := mapRetrievalChunk(map[string]interface{}{
+		"id":                  "chunk_1",
+		"content_with_weight": "content",
+		"section_path_kwd":    "ASTM D445-2015 > 5 Apparatus",
+		"doc_type_kwd":        "table",
+		"tag_kwd":             []any{"viscosity", "standard"},
+	})
+
+	if result.SectionPath == nil || *result.SectionPath != "ASTM D445-2015 > 5 Apparatus" {
+		t.Fatalf("SectionPath=%v", result.SectionPath)
+	}
+	if result.ChunkType == nil || *result.ChunkType != "table" {
+		t.Fatalf("ChunkType=%v", result.ChunkType)
+	}
+	if len(result.Tags) != 2 || result.Tags[0] != "viscosity" || result.Tags[1] != "standard" {
+		t.Fatalf("Tags=%v", result.Tags)
+	}
+}
+
+func TestSectionPathFromVendorFallsBackToNestedMetadata(t *testing.T) {
+	sectionPath := sectionPathFromVendor(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"section_path_kwd": "DL/T 673-1999 > 3 Requirements",
+		},
+	})
+
+	if sectionPath == nil || *sectionPath != "DL/T 673-1999 > 3 Requirements" {
+		t.Fatalf("sectionPath=%v", sectionPath)
 	}
 }
 

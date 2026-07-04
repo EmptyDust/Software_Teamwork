@@ -365,7 +365,7 @@ func TestCreateKnowledgeQueryMapsRetrieval(t *testing.T) {
 			t.Fatalf("method=%s path=%s", r.Method, r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":0,"message":"success","data":{"total":1,"chunks":[{"id":"chunk_1","doc_id":"doc_1","kb_id":"kb_1","similarity":0.91,"docnm_kwd":"readme.md","content_with_weight":"hello world"}]}}`))
+		_, _ = w.Write([]byte(`{"code":0,"message":"success","data":{"total":1,"chunks":[{"id":"chunk_1","doc_id":"doc_1","kb_id":"kb_1","similarity":0.91,"docnm_kwd":"readme.md","content_with_weight":"hello world","section_path_kwd":"ASTM D445-2015 > 1 Scope","doc_type_kwd":"clause"}]}}`))
 	}))
 	defer vendor.Close()
 
@@ -403,6 +403,12 @@ func TestCreateKnowledgeQueryMapsRetrieval(t *testing.T) {
 	}
 	if payload.Data.Results[0]["chunkId"] != "chunk_1" {
 		t.Fatalf("chunk=%v", payload.Data.Results[0])
+	}
+	if payload.Data.Results[0]["sectionPath"] != "ASTM D445-2015 > 1 Scope" {
+		t.Fatalf("sectionPath not mapped: %v", payload.Data.Results[0])
+	}
+	if payload.Data.Results[0]["chunkType"] != "clause" {
+		t.Fatalf("chunkType not mapped: %v", payload.Data.Results[0])
 	}
 	if payload.Data.Trace.EmbeddingModel == "vendor-default" || payload.Data.Trace.EmbeddingDimension == 0 {
 		t.Fatalf("trace should not contain fake runtime facts: %+v", payload.Data.Trace)

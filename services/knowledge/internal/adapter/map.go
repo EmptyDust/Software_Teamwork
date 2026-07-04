@@ -44,6 +44,17 @@ const (
 	runtimeManagedEmbeddingDimension = -1
 )
 
+var publicStandardMetadataKeys = map[string]string{
+	"standard_no_kwd":   "standardNo",
+	"standard_year_int": "standardYear",
+	"clause_no_kwd":     "clauseNo",
+	"clause_title_tks":  "clauseTitle",
+	"table_no_kwd":      "tableNo",
+	"table_title_tks":   "tableTitle",
+	"row_index_int":     "rowIndex",
+	"columns_obj":       "columns",
+}
+
 type knowledgeBaseSummary struct {
 	ID                string          `json:"id"`
 	Name              string          `json:"name"`
@@ -363,26 +374,16 @@ func documentChunkFromVendor(raw map[string]interface{}, kbID, documentID string
 	if explicitIndex := optionalIntField(raw, "chunk_index", "chunkIndex"); explicitIndex != nil {
 		chunkIndex = int32(*explicitIndex)
 	}
-	metadata := map[string]any{}
-	for key, value := range raw {
-		if isRuntimeVectorField(key) {
-			continue
-		}
-		switch key {
-		case "id", "chunk_id", "content_with_weight", "content", "content_ltks", "chunk_index", "chunkIndex", "page_num_int", "doc_id", "document_id", "kb_id", "dataset_id", "docnm_kwd", "image_id", "img_id", "available", "available_int", "positions", "position_int", "tag_kwd", "tag_feas", "important_kwd", "question_kwd", "vector", "token_count", "tokenCount", "token_num", "embedding_provider", "embeddingProvider", "embedding_model", "embeddingModel", "embd_id", "embedding_dimension_int", "embedding_dimension", "embeddingDimension", "vector_dim", "vectorDim":
-			continue
-		default:
-			metadata[key] = value
-		}
-	}
 	return documentChunkSummary{
 		ID:                stringField(raw, "id", "chunk_id"),
 		KnowledgeBaseID:   firstNonEmpty(stringField(raw, "kb_id", "dataset_id"), kbID),
 		DocumentID:        firstNonEmpty(stringField(raw, "doc_id", "document_id"), documentID),
 		ChunkIndex:        chunkIndex,
+		SectionPath:       sectionPathFromVendor(raw),
 		Content:           content,
+		ChunkType:         optionalStringField(raw, "chunk_type", "chunkType", "doc_type_kwd"),
 		EmbeddingProvider: embeddingProviderField(raw),
-		Metadata:          metadata,
+		Metadata:          publicMetadataFromVendor(raw),
 		CreatedAt:         timeField(raw, "create_time", "created_at"),
 	}
 }
@@ -440,8 +441,11 @@ func mapRetrievalChunk(raw map[string]interface{}) knowledgeQueryResult {
 		DocumentID:      docID,
 		ChunkID:         chunkID,
 		DocumentName:    docName,
+		SectionPath:     sectionPathFromVendor(raw),
 		ChunkIndex:      chunkIndex,
+		ChunkType:       optionalStringField(raw, "chunk_type", "chunkType", "doc_type_kwd"),
 		ContentPreview:  content,
+		Tags:            stringSliceField(raw, "tag_kwd", "tags"),
 	}
 }
 
@@ -737,6 +741,107 @@ func tagsFromVendor(raw map[string]interface{}) []string {
 	default:
 		return nil
 	}
+}
+
+func sectionPathFromVendor(raw map[string]interface{}) *string {
+	if value := stringField(raw, "section_path", "sectionPath", "section_path_kwd"); value != "" {
+		return &value
+	}
+	for _, nested := range nestedMaps(raw, "metadata", "meta", "extra", "metadata_obj", "metadataObject") {
+		if value := stringField(nested, "section_path", "sectionPath", "section_path_kwd"); value != "" {
+			return &value
+		}
+	}
+	return nil
+}
+
+func publicMetadataFromVendor(raw map[string]interface{}) map[string]any {
+	metadata := map[string]any{}
+	for key, value := range raw {
+		publicKey, isStandardMetadata := publicStandardMetadataKeys[key]
+		if !isStandardMetadata {
+			publicKey = key
+		}
+		if shouldSkipChunkMetadata(key) {
+			continue
+		}
+		metadata[publicKey] = value
+	}
+	for runtimeKey, publicKey := range publicStandardMetadataKeys {
+		if value, ok := raw[runtimeKey]; ok && value != nil {
+			metadata[publicKey] = value
+		}
+	}
+	for _, nested := range nestedMaps(raw, "metadata", "meta", "extra", "metadata_obj", "metadataObject") {
+		for runtimeKey, publicKey := range publicStandardMetadataKeys {
+			if _, exists := metadata[publicKey]; exists {
+				continue
+			}
+			if value, ok := nested[runtimeKey]; ok && value != nil {
+				metadata[publicKey] = value
+			}
+		}
+	}
+	if len(metadata) == 0 {
+		return nil
+	}
+	return metadata
+}
+
+func shouldSkipChunkMetadata(key string) bool {
+	if isRuntimeVectorField(key) {
+		return true
+	}
+	if _, ok := publicStandardMetadataKeys[key]; ok {
+		return true
+	}
+	switch key {
+	case "id", "chunk_id", "content_with_weight", "content", "content_ltks", "chunk_index", "chunkIndex", "page_num_int", "doc_id", "document_id", "kb_id", "dataset_id", "docnm_kwd", "image_id", "img_id", "available", "available_int", "positions", "position_int", "tag_kwd", "tag_feas", "important_kwd", "question_kwd", "section_path", "sectionPath", "section_path_kwd", "chunk_type", "chunkType", "doc_type_kwd", "metadata", "meta", "extra", "metadata_obj", "metadataObject", "vector", "token_count", "tokenCount", "token_num", "embedding_provider", "embeddingProvider", "embedding_model", "embeddingModel", "embd_id", "embedding_dimension_int", "embedding_dimension", "embeddingDimension", "vector_dim", "vectorDim", "object_key", "provider_response", "access_token":
+		return true
+	default:
+		return false
+	}
+}
+
+func nestedMaps(raw map[string]interface{}, keys ...string) []map[string]interface{} {
+	out := make([]map[string]interface{}, 0, len(keys))
+	for _, key := range keys {
+		value, ok := raw[key]
+		if !ok || value == nil {
+			continue
+		}
+		if nested, ok := value.(map[string]interface{}); ok {
+			out = append(out, nested)
+		}
+	}
+	return out
+}
+
+func stringSliceField(raw map[string]interface{}, keys ...string) []string {
+	for _, key := range keys {
+		value, ok := raw[key]
+		if !ok || value == nil {
+			continue
+		}
+		switch typed := value.(type) {
+		case []string:
+			return append([]string(nil), typed...)
+		case []interface{}:
+			out := make([]string, 0, len(typed))
+			for _, item := range typed {
+				if value := strings.TrimSpace(fmt.Sprint(item)); value != "" {
+					out = append(out, value)
+				}
+			}
+			return out
+		default:
+			value := strings.TrimSpace(fmt.Sprint(typed))
+			if value != "" {
+				return []string{value}
+			}
+		}
+	}
+	return nil
 }
 
 func buildRetrievalBody(req knowledgeQueryRequest, opts retrievalBuildOptions) ([]byte, error) {
